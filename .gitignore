@@ -1,0 +1,13 @@
+# Arquivos do sistema
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Arquivos de IDE / VS Code
+.vscode/
+.idea/
+
+# Logs e temporários
+*.log
+
