@@ -1,326 +1,234 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   StatusBar,
-  Alert,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 
-// Lista inicial de jogadores pré-cadastrados para teste
-const JOGADORES_INICIAIS = [
-  { id: '1', nome: 'Douglas Moura', tipo: 'mensalista', foto: '⚽' },
-  { id: '2', nome: 'Bruno Silva', tipo: 'mensalista', foto: '🏃' },
-  { id: '3', nome: 'Carlos Eduardo', tipo: 'mensalista', foto: '🧤' },
-  { id: '4', nome: 'Lucas Rocha', tipo: 'mensalista', foto: '⚡' },
-  { id: '5', nome: 'Rafael Costa', tipo: 'mensalista', foto: '🎯' },
-  { id: '6', nome: 'Felipe Santos', tipo: 'mensalista', foto: '🔥' },
-  { id: '7', nome: 'Mateus Diarista', tipo: 'diarista', foto: '👟' },
-  { id: '8', nome: 'Rodrigo Diarista', tipo: 'diarista', foto: '👟' },
-];
+import { StorageService } from './src/storage/storage';
+import FinanceiroTab from './src/components/FinanceiroTab';
+import PlayersTab from './src/components/PlayersTab';
+import PartidasTab from './src/components/PartidasTab';
+import RankingTab from './src/components/RankingTab';
+import PresencaTab from './src/components/PresencaTab';
 
 export default function App() {
-  // Usuário atualmente logado
-  const [usuarioLogado, setUsuarioLogado] = useState(JOGADORES_INICIAIS[0]);
+  const [carregando, setCarregando] = useState(true);
 
-  // Informações da Pelada
-  const [peladaInfo] = useState({
-    titulo: 'Pelada de Segunda',
-    data: 'Próxima Segunda-feira',
-    horario: '20:00 às 21:30',
-    local: 'Arena Show de Bola - Quadra 2',
-    vagasTotais: 14,
-  });
+  // Estados principais da aplicação
+  const [abaAtiva, setAbaAtiva] = useState('caixa'); // 'caixa' | 'times' | 'jogos' | 'ranking' | 'presenca'
+  const [config, setConfig] = useState({});
+  const [players, setPlayers] = useState([]);
+  const [pagamentos, setPagamentos] = useState({});
+  const [entradas, setEntradas] = useState([]);
+  const [saidas, setSaidas] = useState([]);
+  const [categoriasEntrada, setCategoriasEntrada] = useState([]);
+  const [categoriasSaida, setCategoriasSaida] = useState([]);
+  const [historicoRanking, setHistoricoRanking] = useState({});
+  
+  // Times ativos para as partidas (definidos pelo sorteio ou padrão)
+  const [timesAtuais, setTimesAtuais] = useState(null);
 
-  // Estado da Agenda (Aberta ou Fechada)
-  const [agendaAberta, setAgendaAberta] = useState(true);
-
-  // Lista de presenças e confirmações
-  // Status possíveis para cada jogador: 'confirmado' | 'nao_vai' | 'fila' | 'pendente'
-  const [presencas, setPresencas] = useState({
-    '1': { status: 'pendente', horarioResposta: null },
-    '2': { status: 'confirmado', horarioResposta: '18:15' },
-    '3': { status: 'confirmado', horarioResposta: '18:30' },
-    '4': { status: 'confirmado', horarioResposta: '18:45' },
-    '5': { status: 'nao_vai', horarioResposta: '19:00' },
-    '6': { status: 'pendente', horarioResposta: null },
-    '7': { status: 'fila', horarioResposta: '18:05' },
-    '8': { status: 'pendente', horarioResposta: null },
-  });
-
-  // Ações do jogador logado
-  const responderPresenca = (novoStatus) => {
-    if (!agendaAberta) {
-      alertSimples('Agenda Fechada', 'A agenda para esta pelada ainda não está aberta.');
-      return;
+  // Carrega dados iniciais do Storage / Planilha
+  useEffect(() => {
+    async function inicializar() {
+      try {
+        const dados = await StorageService.carregarDadosCompletos();
+        setConfig(dados.config);
+        setPlayers(dados.players);
+        setPagamentos(dados.pagamentos);
+        setEntradas(dados.entradas);
+        setSaidas(dados.saidas);
+        setCategoriasEntrada(dados.categoriasEntrada);
+        setCategoriasSaida(dados.categoriasSaida);
+        setHistoricoRanking(dados.historicoRanking);
+      } catch (e) {
+        console.error('Erro na inicialização:', e);
+      } finally {
+        setCarregando(false);
+      }
     }
+    inicializar();
+  }, []);
 
-    const agora = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setPresencas((prev) => ({
-      ...prev,
-      [usuarioLogado.id]: {
-        status: novoStatus,
-        horarioResposta: agora,
-      },
-    }));
-
-    if (novoStatus === 'confirmado') {
-      alertSimples('Presença Confirmada! ⚽', 'Sua vaga está garantida na pelada de segunda!');
-    } else if (novoStatus === 'nao_vai') {
-      alertSimples('Que pena! ❌', 'Sua vaga foi liberada para a fila de espera dos diaristas.');
-    } else if (novoStatus === 'fila') {
-      alertSimples('Nome na Fila! ⏳', 'Você entrou na fila de espera. Assim que abrir vaga, você será chamado!');
-    } else if (novoStatus === 'pendente') {
-      alertSimples('Cancelado', 'Sua resposta foi redefinida.');
-    }
+  // Handlers com persistência automática no AsyncStorage
+  const handleUpdateConfig = async (novaConfig) => {
+    setConfig(novaConfig);
+    await StorageService.salvarConfig(novaConfig);
   };
 
-  const alertSimples = (titulo, mensagem) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${titulo}\n\n${mensagem}`);
-    } else {
-      Alert.alert(titulo, mensagem);
-    }
+  const handleUpdatePlayers = async (novosPlayers) => {
+    setPlayers(novosPlayers);
+    await StorageService.salvarPlayers(novosPlayers);
   };
 
-  // Separação dos jogadores por grupos
-  const confirmados = JOGADORES_INICIAIS.filter(
-    (j) => presencas[j.id]?.status === 'confirmado'
-  );
+  const handleUpdatePagamentos = async (novosPagamentos) => {
+    setPagamentos(novosPagamentos);
+    await StorageService.salvarPagamentos(novosPagamentos);
+  };
 
-  const filaEspera = JOGADORES_INICIAIS.filter(
-    (j) => presencas[j.id]?.status === 'fila'
-  );
+  const handleUpdateEntradas = async (novasEntradas) => {
+    setEntradas(novasEntradas);
+    await StorageService.salvarEntradas(novasEntradas);
+  };
 
-  const naoVao = JOGADORES_INICIAIS.filter(
-    (j) => presencas[j.id]?.status === 'nao_vai'
-  );
+  const handleUpdateSaidas = async (novasSaidas) => {
+    setSaidas(novasSaidas);
+    await StorageService.salvarSaidas(novasSaidas);
+  };
 
-  const statusAtualUsuario = presencas[usuarioLogado.id]?.status || 'pendente';
+  const handleUpdateCategoriasEntrada = async (novasCats) => {
+    setCategoriasEntrada(novasCats);
+    await StorageService.salvarCategorias(novasCats, categoriasSaida);
+  };
+
+  const handleUpdateCategoriasSaida = async (novasCats) => {
+    setCategoriasSaida(novasCats);
+    await StorageService.salvarCategorias(categoriasEntrada, novasCats);
+  };
+
+  const handleUpdateHistoricoRanking = async (novoHist) => {
+    setHistoricoRanking(novoHist);
+    await StorageService.salvarHistoricoRanking(novoHist);
+  };
+
+  // Quando finaliza a rodada em PartidasTab, computa os pontos no Ranking Geral
+  const handleAdicionarPontosRodada = async (pontosRodada, dataStr) => {
+    const novoHist = { ...historicoRanking };
+
+    Object.entries(pontosRodada).forEach(([playerId, stats]) => {
+      if (!novoHist[playerId]) {
+        novoHist[playerId] = {
+          nome: stats.nome,
+          pontosTotais: 0,
+          pontosPorData: {},
+        };
+      }
+
+      // Adiciona aos pontos totais
+      novoHist[playerId].pontosTotais =
+        Math.round(((novoHist[playerId].pontosTotais || 0) + stats.pontos) * 10) / 10;
+
+      // Registra a pontuação na data
+      if (!novoHist[playerId].pontosPorData) {
+        novoHist[playerId].pontosPorData = {};
+      }
+      novoHist[playerId].pontosPorData[dataStr] =
+        Math.round(((novoHist[playerId].pontosPorData[dataStr] || 0) + stats.pontos) * 10) / 10;
+    });
+
+    setHistoricoRanking(novoHist);
+    await StorageService.salvarHistoricoRanking(novoHist);
+  };
+
+  if (carregando) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#10b981" />
+        <Text style={styles.loadingText}>Carregando dados da Pelada de Segunda...</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#134e2b" />
-      <ScrollView contentContainerStyle={styles.container}>
-        
-        {/* CABEÇALHO */}
-        <View style={styles.header}>
-          <Text style={styles.headerBadge}>⚽ PELADA DE SEGUNDA</Text>
-          <Text style={styles.headerTitle}>{peladaInfo.data}</Text>
-          <Text style={styles.headerSubtitle}>
-            🕒 {peladaInfo.horario} • 📍 {peladaInfo.local}
-          </Text>
+      <StatusBar barStyle="light-content" backgroundColor="#064e3b" />
 
-          {/* STATUS DA AGENDA */}
-          <View style={styles.agendaStatusContainer}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: agendaAberta ? '#22c55e' : '#ef4444' },
-              ]}
-            />
-            <Text style={styles.agendaStatusText}>
-              {agendaAberta ? 'Agenda Aberta para Respostas' : 'Agenda Fechada'}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setAgendaAberta(!agendaAberta)}
-              style={styles.toggleAgendaButton}
-            >
-              <Text style={styles.toggleAgendaText}>
-                {agendaAberta ? 'Fechar' : 'Abrir'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      {/* CABEÇALHO GLOBAL */}
+      <View style={styles.topHeader}>
+        <View>
+          <Text style={styles.appBadge}>⚽ PELADA DE SEGUNDA</Text>
+          <Text style={styles.appTitulo}>Gestão & Partidas</Text>
         </View>
-
-        {/* SELETOR RÁPIDO DE USUÁRIO (Simula quem está logado) */}
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>👤 JOGADOR LOGADO:</Text>
-          <View style={styles.userProfile}>
-            <Text style={styles.userAvatar}>{usuarioLogado.foto}</Text>
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{usuarioLogado.nome}</Text>
-              <View
-                style={[
-                  styles.tipoBadge,
-                  usuarioLogado.tipo === 'mensalista'
-                    ? styles.badgeMensalista
-                    : styles.badgeDiarista,
-                ]}
-              >
-                <Text style={styles.tipoBadgeText}>
-                  {usuarioLogado.tipo === 'mensalista' ? '⭐ Mensalista' : '⏳ Diarista'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Troca rápida de jogador para demonstração */}
-          <Text style={styles.switchLabel}>Simular login como outro jogador:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.userScroll}>
-            {JOGADORES_INICIAIS.map((jogador) => (
-              <TouchableOpacity
-                key={jogador.id}
-                onPress={() => setUsuarioLogado(jogador)}
-                style={[
-                  styles.switchButton,
-                  usuarioLogado.id === jogador.id && styles.switchButtonActive,
-                ]}
-              >
-                <Text style={styles.switchButtonText}>
-                  {jogador.foto} {jogador.nome.split(' ')[0]} ({jogador.tipo === 'mensalista' ? 'M' : 'D'})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        <View style={styles.headerRightInfo}>
+          <Text style={styles.headerQuadra}>Arena Show de Bola</Text>
+          <Text style={styles.headerHorario}>Segundas • 20h às 21:30</Text>
         </View>
+      </View>
 
-        {/* TELA DE CONFIRMAÇÃO DO USUÁRIO LOGADO */}
-        <View style={[styles.card, styles.actionCard]}>
-          <Text style={styles.cardTitle}>
-            {usuarioLogado.tipo === 'mensalista'
-              ? '🎯 Você vai na próxima pelada?'
-              : '⏳ Fila de Espera dos Diaristas'}
-          </Text>
-
-          {!agendaAberta ? (
-            <View style={styles.avisoAgendaFechada}>
-              <Text style={styles.avisoTexto}>
-                🔒 A agenda está fechada no momento. Aguarde o organizador abrir as confirmações.
-              </Text>
-            </View>
-          ) : (
-            <>
-              {/* Opções para Mensalista */}
-              {usuarioLogado.tipo === 'mensalista' && (
-                <View style={styles.botoesContainer}>
-                  <TouchableOpacity
-                    onPress={() => responderPresenca('confirmado')}
-                    style={[
-                      styles.botaoPrincipal,
-                      styles.botaoConfirmar,
-                      statusAtualUsuario === 'confirmado' && styles.botaoSelecionado,
-                    ]}
-                  >
-                    <Text style={styles.botaoTexto}>
-                      {statusAtualUsuario === 'confirmado' ? '✅ VOCÊ CONFIRMOU' : '⚽ VOU JOGAR!'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => responderPresenca('nao_vai')}
-                    style={[
-                      styles.botaoPrincipal,
-                      styles.botaoRecusar,
-                      statusAtualUsuario === 'nao_vai' && styles.botaoSelecionado,
-                    ]}
-                  >
-                    <Text style={styles.botaoTexto}>
-                      {statusAtualUsuario === 'nao_vai' ? '❌ VOCÊ AVISOU QUE NÃO VAI' : '🚫 NÃO VOU'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Opções para Diarista */}
-              {usuarioLogado.tipo === 'diarista' && (
-                <View style={styles.botoesContainer}>
-                  {statusAtualUsuario !== 'fila' ? (
-                    <TouchableOpacity
-                      onPress={() => responderPresenca('fila')}
-                      style={[styles.botaoPrincipal, styles.botaoFila]}
-                    >
-                      <Text style={styles.botaoTexto}>✋ COLOCAR NOME NA FILA</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => responderPresenca('pendente')}
-                      style={[styles.botaoPrincipal, styles.botaoRecusar]}
-                    >
-                      <Text style={styles.botaoTexto}>❌ SAIR DA FILA DE ESPERA</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* LISTA DE CONFIRMADOS */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>
-              📋 Confirmados ({confirmados.length}/{peladaInfo.vagasTotais})
-            </Text>
-            <Text style={styles.vagasRestantes}>
-              {peladaInfo.vagasTotais - confirmados.length} vagas restantes
-            </Text>
-          </View>
-
-          {confirmados.length === 0 ? (
-            <Text style={styles.listaVazia}>Nenhum jogador confirmado ainda.</Text>
-          ) : (
-            confirmados.map((jogador, index) => (
-              <View key={jogador.id} style={styles.playerItem}>
-                <Text style={styles.playerNumber}>{index + 1}.</Text>
-                <Text style={styles.playerAvatarSmall}>{jogador.foto}</Text>
-                <Text style={styles.playerName}>{jogador.nome}</Text>
-                <View style={styles.tagMensalista}>
-                  <Text style={styles.tagText}>
-                    {jogador.tipo === 'mensalista' ? 'MENSALISTA' : 'DIARISTA'}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* FILA DE ESPERA (DIARISTAS) */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            ⏳ Fila de Espera (Diaristas) - {filaEspera.length}
-          </Text>
-          <Text style={styles.cardDica}>
-            Ordem de prioridade para assumir vagas liberadas por mensalistas:
-          </Text>
-
-          {filaEspera.length === 0 ? (
-            <Text style={styles.listaVazia}>Nenhum diarista na fila até o momento.</Text>
-          ) : (
-            filaEspera.map((jogador, index) => (
-              <View key={jogador.id} style={styles.playerItem}>
-                <View style={styles.posicaoFila}>
-                  <Text style={styles.posicaoFilaText}>#{index + 1}</Text>
-                </View>
-                <Text style={styles.playerAvatarSmall}>{jogador.foto}</Text>
-                <Text style={styles.playerName}>{jogador.nome}</Text>
-                <Text style={styles.horarioFila}>
-                  Entrou às {presencas[jogador.id]?.horarioResposta || '--:--'}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* AUSÊNCIAS (NÃO VÃO) */}
-        {naoVao.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>❌ Desfalques Confirmados ({naoVao.length})</Text>
-            {naoVao.map((jogador) => (
-              <View key={jogador.id} style={styles.playerItem}>
-                <Text style={styles.playerAvatarSmall}>{jogador.foto}</Text>
-                <Text style={[styles.playerName, styles.playerDesfalque]}>{jogador.nome}</Text>
-                <Text style={styles.tagLiberou}>Liberou vaga</Text>
-              </View>
-            ))}
-          </View>
+      {/* ÁREA DE CONTEÚDO PRINCIPAL (BASEADA NA ABA ATIVA) */}
+      <View style={styles.conteudoContainer}>
+        {abaAtiva === 'caixa' && (
+          <FinanceiroTab
+            config={config}
+            onUpdateConfig={handleUpdateConfig}
+            players={players}
+            pagamentos={pagamentos}
+            onUpdatePagamentos={handleUpdatePagamentos}
+            entradas={entradas}
+            onUpdateEntradas={handleUpdateEntradas}
+            saidas={saidas}
+            onUpdateSaidas={handleUpdateSaidas}
+            categoriasEntrada={categoriasEntrada}
+            onUpdateCategoriasEntrada={handleUpdateCategoriasEntrada}
+            categoriasSaida={categoriasSaida}
+            onUpdateCategoriasSaida={handleUpdateCategoriasSaida}
+          />
         )}
 
-      </ScrollView>
+        {abaAtiva === 'times' && (
+          <PlayersTab
+            players={players}
+            onUpdatePlayers={handleUpdatePlayers}
+            onTimesGerados={(times) => setTimesAtuais(times)}
+          />
+        )}
+
+        {abaAtiva === 'jogos' && (
+          <PartidasTab
+            timesAtuais={timesAtuais}
+            players={players}
+            onAdicionarPontosRodada={handleAdicionarPontosRodada}
+          />
+        )}
+
+        {abaAtiva === 'ranking' && (
+          <RankingTab
+            players={players}
+            historicoRanking={historicoRanking}
+            onUpdateHistoricoRanking={handleUpdateHistoricoRanking}
+          />
+        )}
+
+        {abaAtiva === 'presenca' && (
+          <PresencaTab
+            players={players}
+            onEnviarParaSorteio={(confirmados) => {
+              setAbaAtiva('times');
+            }}
+          />
+        )}
+      </View>
+
+      {/* BARRA DE NAVEGAÇÃO INFERIOR MODERNA */}
+      <View style={styles.bottomNav}>
+        {[
+          { key: 'caixa', label: 'Caixa', icon: '💰' },
+          { key: 'times', label: 'Times', icon: '⚡' },
+          { key: 'jogos', label: 'Jogos (7m)', icon: '⚽' },
+          { key: 'ranking', label: 'Ranking', icon: '🏆' },
+          { key: 'presenca', label: 'Presença', icon: '📋' },
+        ].map((tab) => {
+          const ativo = abaAtiva === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setAbaAtiva(tab.key)}
+              style={[styles.navItem, ativo && styles.navItemAtivo]}
+            >
+              <Text style={styles.navIcon}>{tab.icon}</Text>
+              <Text style={[styles.navLabel, ativo && styles.navLabelAtivo]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </SafeAreaView>
   );
 }
@@ -330,280 +238,86 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a2315',
   },
-  container: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  header: {
-    backgroundColor: '#134e2b',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  headerBadge: {
-    color: '#86efac',
-    fontWeight: 'bold',
-    fontSize: 12,
-    letterSpacing: 1.5,
-    marginBottom: 4,
-  },
-  headerTitle: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  headerSubtitle: {
-    color: '#dcfce7',
-    fontSize: 13,
-    marginBottom: 14,
-  },
-  agendaStatusContainer: {
-    flexDirection: 'row',
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0a2315',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  agendaStatusText: {
-    color: '#ffffff',
-    fontSize: 12,
+  loadingText: {
+    color: '#a7f3d0',
+    fontSize: 14,
     fontWeight: '600',
-    marginRight: 10,
+    marginTop: 12,
   },
-  toggleAgendaButton: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  toggleAgendaText: {
-    color: '#134e2b',
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6b7280',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  cardHeaderRow: {
+  topHeader: {
+    backgroundColor: '#064e3b',
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'android' ? 36 : 14,
+    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  cardDica: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 12,
-    marginTop: 2,
-  },
-  vagasRestantes: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#16a34a',
-  },
-  userProfile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  userAvatar: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  tipoBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-  badgeMensalista: {
-    backgroundColor: '#fef3c7',
-  },
-  badgeDiarista: {
-    backgroundColor: '#e0f2fe',
-  },
-  tipoBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  switchLabel: {
-    fontSize: 11,
-    color: '#9ca3af',
-    marginBottom: 6,
-  },
-  userScroll: {
-    marginTop: 4,
-  },
-  switchButton: {
-    backgroundColor: '#f3f4f6',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  switchButtonActive: {
-    backgroundColor: '#134e2b',
-  },
-  switchButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  actionCard: {
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1.5,
-    borderColor: '#86efac',
-  },
-  botoesContainer: {
-    marginTop: 12,
-    gap: 10,
-  },
-  botaoPrincipal: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  botaoConfirmar: {
-    backgroundColor: '#16a34a',
-  },
-  botaoRecusar: {
-    backgroundColor: '#dc2626',
-  },
-  botaoFila: {
-    backgroundColor: '#2563eb',
-  },
-  botaoSelecionado: {
-    borderWidth: 3,
-    borderColor: '#facc15',
-  },
-  botaoTexto: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  avisoAgendaFechada: {
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  avisoTexto: {
-    color: '#991b1b',
-    fontSize: 13,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  playerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: '#059669',
   },
-  playerNumber: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#9ca3af',
-    width: 24,
+  appBadge: {
+    color: '#86efac',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
-  posicaoFila: {
-    backgroundColor: '#dbeafe',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
+  appTitulo: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
-  posicaoFilaText: {
-    color: '#1d4ed8',
-    fontWeight: 'bold',
+  headerRightInfo: {
+    alignItems: 'flex-end',
+  },
+  headerQuadra: {
+    color: '#e2e8f0',
     fontSize: 12,
+    fontWeight: '700',
   },
-  playerAvatarSmall: {
-    fontSize: 18,
-    marginRight: 10,
+  headerHorario: {
+    color: '#94a3b8',
+    fontSize: 10,
+    marginTop: 1,
   },
-  playerName: {
+  conteudoContainer: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
+    backgroundColor: '#f1f5f9',
   },
-  playerDesfalque: {
-    color: '#9ca3af',
-    textDecorationLine: 'line-through',
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#0f172a',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
   },
-  tagMensalista: {
-    backgroundColor: '#dcfce7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderRadius: 10,
   },
-  tagText: {
-    color: '#166534',
+  navItemAtivo: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  navIcon: {
+    fontSize: 18,
+    marginBottom: 2,
+  },
+  navLabel: {
     fontSize: 10,
     fontWeight: '700',
+    color: '#64748b',
   },
-  tagLiberou: {
-    fontSize: 11,
-    color: '#dc2626',
-    fontWeight: '600',
-  },
-  horarioFila: {
-    fontSize: 11,
-    color: '#6b7280',
-  },
-  listaVazia: {
-    color: '#9ca3af',
-    fontSize: 13,
-    fontStyle: 'italic',
-    paddingVertical: 8,
+  navLabelAtivo: {
+    color: '#10b981',
+    fontWeight: '900',
   },
 });
-
