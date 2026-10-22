@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "name": "⚽ Pelada de Segunda",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/.expo": true
+    }
+  }
+}
