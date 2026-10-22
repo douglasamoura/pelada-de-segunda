@@ -1,13 +1,22 @@
-# Arquivos do sistema
+node_modules/
+.expo/
+dist/
+web-build/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# Windows
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Arquivos de IDE / VS Code
+# IDEs
 .vscode/
 .idea/
-
-# Logs e temporários
 *.log
-
