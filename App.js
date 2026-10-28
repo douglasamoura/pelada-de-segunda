@@ -8,7 +8,6 @@ import {
   StatusBar,
   ActivityIndicator,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 
 import { StorageService } from './src/storage/storage';
@@ -70,9 +69,6 @@ export default function App() {
     }
     inicializar();
   }, []);
-
-  const { width } = useWindowDimensions();
-  const ehMobile = width < 768;
 
   const ehAdmin = Boolean(usuarioLogado?.ehAdmin);
 
@@ -300,7 +296,7 @@ export default function App() {
       </View>
 
       {/* BARRA DE NAVEGAÇÃO INFERIOR COM A ORDEM SOLICITADA */}
-      <View style={[styles.bottomNav, ehMobile && styles.bottomNavMobile]}>
+      <View style={styles.bottomNav}>
         {[
           { key: 'presenca', label: 'Presença', icon: '📋' },
           { key: 'partidas', label: 'Jogos da Rodada', icon: '⚽' },
@@ -330,7 +326,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#041f11',
+    backgroundColor: '#0a2315',
   },
   loadingContainer: {
     flex: 1,
@@ -420,11 +416,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 4,
     justifyContent: 'space-around',
-  },
-  bottomNavMobile: {
-    marginBottom: 58,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0f4829',
   },
   navItem: {
     alignItems: 'center',
