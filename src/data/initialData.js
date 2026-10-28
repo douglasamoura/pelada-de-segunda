@@ -1,4 +1,4 @@
-// Dados importados e normalizados da planilha oficial da Pelada de Segunda
+// Dados 100% alinhados com a planilha oficial da Pelada de Segunda
 
 export const MESES = [
   "Janeiro",
@@ -15,11 +15,19 @@ export const MESES = [
   "Dezembro"
 ];
 
+export const STATUS_CORES = {
+  'Mensalista': { bg: '#dcfce7', text: '#15803d', border: '#86efac', rotulo: 'Mensalista' },
+  'Mensalista Ausente': { bg: '#fee2e2', text: '#b91c1c', border: '#fca5a5', rotulo: 'Mensalista Ausente' },
+  'Mensalista Temporário': { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd', rotulo: 'Mensalista Temp.' },
+  'Diarista': { bg: '#fef3c7', text: '#b45309', border: '#fcd34d', rotulo: 'Diarista' },
+  'Goleiro': { bg: '#f3e8ff', text: '#7e22ce', border: '#d8b4fe', rotulo: 'Goleiro' },
+};
+
 export const CATEGORIAS_ENTRADA = [
-  'Mensalidade',
   'Diarista',
   'Caixa Anterior',
   'Churrasco/Evento',
+  'Patrocínio',
   'Outro',
 ];
 
@@ -32,189 +40,21 @@ export const CATEGORIAS_SAIDA = [
 ];
 
 export const CONFIG_PADRAO = {
-  valorMensalidade: 75.0,
-  valorDiarista: 20.0,
-  diaVencimentoMensalidade: 10,
-  duracaoPartidaMinutos: 7,
-  jogadoresPorTime: 5,
-  quantidadeTimes: 3,
-  pontosVitoria: 3.0,
-  pontosEmpateVantagem: 1.0,
-  pontosParticipacaoGol: 0.5,
+  "valorMensalidade": 75.0,
+  "valorDiarista": 20.0,
+  "diaVencimentoMensalidade": 10,
+  "valorEmDinheiro": 0.0,
+  "duracaoPartidaMinutos": 7,
+  "jogadoresPorTime": 5,
+  "quantidadeTimes": 3,
+  "pontosVitoria": 3.0,
+  "pontosEmpateVantagem": 1.0,
+  "pontosParticipacaoGol": 0.5
 };
 
 export const JOGADORES_INICIAIS = [
   {
-    "id": "p_1",
-    "nome": "Rechan",
-    "status": "Mensalista Ausente",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 4.0,
-    "chute": 4.0,
-    "marcacao": 3.0,
-    "passe": 4.0,
-    "habilidade": 4.0,
-    "overall": 19.0
-  },
-  {
-    "id": "p_2",
-    "nome": "Bahia",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 5.0,
-    "chute": 3.0,
-    "marcacao": 4.0,
-    "passe": 3.0,
-    "habilidade": 3.0,
-    "overall": 18.0
-  },
-  {
-    "id": "p_3",
-    "nome": "Diogo",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 4.0,
-    "chute": 3.0,
-    "marcacao": 3.0,
-    "passe": 4.0,
-    "habilidade": 3.0,
-    "overall": 17.0
-  },
-  {
-    "id": "p_4",
-    "nome": "Guilherme",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 3.0,
-    "chute": 3.0,
-    "marcacao": 3.0,
-    "passe": 4.0,
-    "habilidade": 3.0,
-    "overall": 16.0
-  },
-  {
-    "id": "p_5",
-    "nome": "Felipo",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 4.0,
-    "habilidade": 4.0,
-    "overall": 15.0
-  },
-  {
-    "id": "p_6",
-    "nome": "Douglas",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 5.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 3.0,
-    "habilidade": 2.0,
-    "overall": 15.0
-  },
-  {
-    "id": "p_7",
-    "nome": "Felipim",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 4.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 4.0,
-    "habilidade": 3.0,
-    "overall": 15.0
-  },
-  {
-    "id": "p_8",
-    "nome": "Daibert",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 3.0,
-    "chute": 2.0,
-    "marcacao": 3.0,
-    "passe": 3.0,
-    "habilidade": 2.0,
-    "overall": 13.0
-  },
-  {
-    "id": "p_9",
-    "nome": "Rogério",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 3.0,
-    "habilidade": 3.0,
-    "overall": 13.0
-  },
-  {
-    "id": "p_10",
-    "nome": "Brug",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 4.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 12.0
-  },
-  {
-    "id": "p_11",
-    "nome": "Lucão",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 1.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 3.0,
-    "habilidade": 3.0,
-    "overall": 11.0
-  },
-  {
-    "id": "p_12",
-    "nome": "Filipão",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_13",
-    "nome": "Alan",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⭐",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_14",
+    "id": "j_alex",
     "nome": "Alex",
     "status": "Mensalista",
     "posicao": "Linha",
@@ -227,8 +67,177 @@ export const JOGADORES_INICIAIS = [
     "overall": 6.0
   },
   {
-    "id": "p_15",
-    "nome": "Fábio",
+    "id": "j_bahia",
+    "nome": "Bahia",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 5.0,
+    "chute": 3.0,
+    "marcacao": 4.0,
+    "passe": 3.0,
+    "habilidade": 3.0,
+    "overall": 18.0
+  },
+  {
+    "id": "j_brug",
+    "nome": "Brug",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 4.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 12.0
+  },
+  {
+    "id": "j_daibert",
+    "nome": "Daibert",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 3.0,
+    "chute": 2.0,
+    "marcacao": 3.0,
+    "passe": 3.0,
+    "habilidade": 2.0,
+    "overall": 13.0
+  },
+  {
+    "id": "j_douglas",
+    "nome": "Douglas",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 5.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 3.0,
+    "habilidade": 2.0,
+    "overall": 15.0
+  },
+  {
+    "id": "j_diogo",
+    "nome": "Diogo",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 4.0,
+    "chute": 3.0,
+    "marcacao": 3.0,
+    "passe": 4.0,
+    "habilidade": 3.0,
+    "overall": 17.0
+  },
+  {
+    "id": "j_felipe",
+    "nome": "Felipe",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 4.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 4.0,
+    "habilidade": 3.0,
+    "overall": 15.0
+  },
+  {
+    "id": "j_felipo",
+    "nome": "Felipo",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 4.0,
+    "habilidade": 4.0,
+    "overall": 15.0
+  },
+  {
+    "id": "j_rogerio",
+    "nome": "Rogerio",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 3.0,
+    "habilidade": 3.0,
+    "overall": 13.0
+  },
+  {
+    "id": "j_rechan",
+    "nome": "Rechan",
+    "status": "Mensalista Ausente",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 4.0,
+    "chute": 4.0,
+    "marcacao": 3.0,
+    "passe": 4.0,
+    "habilidade": 4.0,
+    "overall": 19.0
+  },
+  {
+    "id": "j_guilherme",
+    "nome": "Guilherme",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 3.0,
+    "chute": 3.0,
+    "marcacao": 3.0,
+    "passe": 4.0,
+    "habilidade": 3.0,
+    "overall": 16.0
+  },
+  {
+    "id": "j_filipao",
+    "nome": "Filipão",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_lucao",
+    "nome": "Lucao",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 1.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 3.0,
+    "habilidade": 3.0,
+    "overall": 11.0
+  },
+  {
+    "id": "j_alan",
+    "nome": "Alan",
+    "status": "Mensalista",
+    "posicao": "Linha",
+    "avatar": "⭐",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_fabio",
+    "nome": "Fabio",
     "status": "Mensalista",
     "posicao": "Linha",
     "avatar": "⭐",
@@ -240,33 +249,7 @@ export const JOGADORES_INICIAIS = [
     "overall": 14.0
   },
   {
-    "id": "p_16",
-    "nome": "Foró",
-    "status": "Goleiro",
-    "posicao": "Goleiro",
-    "avatar": "🧤",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_17",
-    "nome": "Gabriel",
-    "status": "Goleiro",
-    "posicao": "Goleiro",
-    "avatar": "🧤",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_18",
+    "id": "j_juan",
     "nome": "Juan",
     "status": "Diarista",
     "posicao": "Linha",
@@ -279,20 +262,7 @@ export const JOGADORES_INICIAIS = [
     "overall": 10.0
   },
   {
-    "id": "p_19",
-    "nome": "Peterson",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 4.0,
-    "chute": 5.0,
-    "marcacao": 3.0,
-    "passe": 4.0,
-    "habilidade": 4.0,
-    "overall": 20.0
-  },
-  {
-    "id": "p_20",
+    "id": "j_thiago",
     "nome": "Thiago",
     "status": "Diarista",
     "posicao": "Linha",
@@ -305,124 +275,7 @@ export const JOGADORES_INICIAIS = [
     "overall": 18.0
   },
   {
-    "id": "p_21",
-    "nome": "Leo Sanfona",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 4.0,
-    "chute": 4.0,
-    "marcacao": 3.0,
-    "passe": 3.0,
-    "habilidade": 4.0,
-    "overall": 18.0
-  },
-  {
-    "id": "p_22",
-    "nome": "Caio",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 3.0,
-    "chute": 3.0,
-    "marcacao": 4.0,
-    "passe": 4.0,
-    "habilidade": 3.0,
-    "overall": 17.0
-  },
-  {
-    "id": "p_23",
-    "nome": "Thierry",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 5.0,
-    "marcacao": 3.0,
-    "passe": 3.0,
-    "habilidade": 3.0,
-    "overall": 16.0
-  },
-  {
-    "id": "p_24",
-    "nome": "David",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 5.0,
-    "passe": 3.0,
-    "habilidade": 2.0,
-    "overall": 15.0
-  },
-  {
-    "id": "p_25",
-    "nome": "Curinga",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 5.0,
-    "habilidade": 2.0,
-    "overall": 14.0
-  },
-  {
-    "id": "p_26",
-    "nome": "Léo (Lucão)",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 3.0,
-    "passe": 4.0,
-    "habilidade": 2.0,
-    "overall": 14.0
-  },
-  {
-    "id": "p_27",
-    "nome": "Wand",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 4.0,
-    "passe": 2.0,
-    "habilidade": 3.0,
-    "overall": 14.0
-  },
-  {
-    "id": "p_28",
-    "nome": "Alan Neo",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 3.0,
-    "marcacao": 3.0,
-    "passe": 3.0,
-    "habilidade": 3.0,
-    "overall": 14.0
-  },
-  {
-    "id": "p_29",
-    "nome": "Yuri",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 3.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 3.0,
-    "overall": 13.0
-  },
-  {
-    "id": "p_30",
+    "id": "j_victao",
     "nome": "Victão",
     "status": "Mensalista Temporário",
     "posicao": "Linha",
@@ -435,98 +288,7 @@ export const JOGADORES_INICIAIS = [
     "overall": 13.0
   },
   {
-    "id": "p_31",
-    "nome": "Leo Duarte",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 4.0,
-    "overall": 12.0
-  },
-  {
-    "id": "p_32",
-    "nome": "Balboa",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 3.0,
-    "chute": 2.0,
-    "marcacao": 3.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 12.0
-  },
-  {
-    "id": "p_33",
-    "nome": "Andre",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 3.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 11.0
-  },
-  {
-    "id": "p_34",
-    "nome": "Guilherme Almeida",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 3.0,
-    "passe": 2.0,
-    "habilidade": 1.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_35",
-    "nome": "Quibim",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 3.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 1.0,
-    "habilidade": 1.0,
-    "overall": 9.0
-  },
-  {
-    "id": "p_36",
-    "nome": "Neo",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 1.0,
-    "overall": 9.0
-  },
-  {
-    "id": "p_37",
-    "nome": "Rafael",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 1.0,
-    "chute": 3.0,
-    "marcacao": 2.0,
-    "passe": 1.0,
-    "habilidade": 1.0,
-    "overall": 8.0
-  },
-  {
-    "id": "p_38",
+    "id": "j_jader",
     "nome": "Jader",
     "status": "Diarista",
     "posicao": "Linha",
@@ -539,7 +301,254 @@ export const JOGADORES_INICIAIS = [
     "overall": 7.0
   },
   {
-    "id": "p_39",
+    "id": "j_yuri",
+    "nome": "Yuri",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 3.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 3.0,
+    "overall": 13.0
+  },
+  {
+    "id": "j_thierry",
+    "nome": "Thierry",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 5.0,
+    "marcacao": 3.0,
+    "passe": 3.0,
+    "habilidade": 3.0,
+    "overall": 16.0
+  },
+  {
+    "id": "j_fontainha",
+    "nome": "Fontainha",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_foro",
+    "nome": "Foró",
+    "status": "Goleiro",
+    "posicao": "Goleiro",
+    "avatar": "🧤",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_gabriel",
+    "nome": "Gabriel",
+    "status": "Goleiro",
+    "posicao": "Goleiro",
+    "avatar": "🧤",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_peterson",
+    "nome": "Peterson",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 4.0,
+    "chute": 5.0,
+    "marcacao": 3.0,
+    "passe": 4.0,
+    "habilidade": 4.0,
+    "overall": 20.0
+  },
+  {
+    "id": "j_leo_sanfona",
+    "nome": "Leo Sanfona",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 4.0,
+    "chute": 4.0,
+    "marcacao": 3.0,
+    "passe": 3.0,
+    "habilidade": 4.0,
+    "overall": 18.0
+  },
+  {
+    "id": "j_caio",
+    "nome": "Caio",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 3.0,
+    "chute": 3.0,
+    "marcacao": 4.0,
+    "passe": 4.0,
+    "habilidade": 3.0,
+    "overall": 17.0
+  },
+  {
+    "id": "j_david",
+    "nome": "David",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 5.0,
+    "passe": 3.0,
+    "habilidade": 2.0,
+    "overall": 15.0
+  },
+  {
+    "id": "j_curinga",
+    "nome": "Curinga",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 5.0,
+    "habilidade": 2.0,
+    "overall": 14.0
+  },
+  {
+    "id": "j_leo_lucao",
+    "nome": "Léo (Lucão)",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 3.0,
+    "passe": 4.0,
+    "habilidade": 2.0,
+    "overall": 14.0
+  },
+  {
+    "id": "j_wand",
+    "nome": "Wand",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 4.0,
+    "passe": 2.0,
+    "habilidade": 3.0,
+    "overall": 14.0
+  },
+  {
+    "id": "j_alan_neo",
+    "nome": "Alan Neo",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 3.0,
+    "marcacao": 3.0,
+    "passe": 3.0,
+    "habilidade": 3.0,
+    "overall": 14.0
+  },
+  {
+    "id": "j_balboa",
+    "nome": "Balboa",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 3.0,
+    "chute": 2.0,
+    "marcacao": 3.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 12.0
+  },
+  {
+    "id": "j_andre",
+    "nome": "Andre",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 3.0,
+    "passe": 2.0,
+    "habilidade": 2.0,
+    "overall": 11.0
+  },
+  {
+    "id": "j_guilherme_almeida",
+    "nome": "Guilherme Almeida",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 3.0,
+    "passe": 2.0,
+    "habilidade": 1.0,
+    "overall": 10.0
+  },
+  {
+    "id": "j_quibim",
+    "nome": "Quibim",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 3.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 1.0,
+    "habilidade": 1.0,
+    "overall": 9.0
+  },
+  {
+    "id": "j_neo",
+    "nome": "Neo",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 2.0,
+    "chute": 2.0,
+    "marcacao": 2.0,
+    "passe": 2.0,
+    "habilidade": 1.0,
+    "overall": 9.0
+  },
+  {
+    "id": "j_rafael",
+    "nome": "Rafael",
+    "status": "Diarista",
+    "posicao": "Linha",
+    "avatar": "🏃",
+    "velocidade": 1.0,
+    "chute": 3.0,
+    "marcacao": 2.0,
+    "passe": 1.0,
+    "habilidade": 1.0,
+    "overall": 8.0
+  },
+  {
+    "id": "j_ronildo",
     "nome": "Ronildo",
     "status": "Diarista",
     "posicao": "Linha",
@@ -550,128 +559,11 @@ export const JOGADORES_INICIAIS = [
     "passe": 2.0,
     "habilidade": 3.0,
     "overall": 14.0
-  },
-  {
-    "id": "p_extra_9",
-    "nome": "Felipe",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⚽",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_extra_11",
-    "nome": "Rogerio",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⚽",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_extra_15",
-    "nome": "Lucao",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⚽",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_extra_17",
-    "nome": "Fabio",
-    "status": "Mensalista",
-    "posicao": "Linha",
-    "avatar": "⚽",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_extra_25",
-    "nome": "Fontainha",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "⚽",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_rank_19",
-    "nome": "André",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_rank_22",
-    "nome": "Maninho",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_rank_24",
-    "nome": "Léo Duarte",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
-  },
-  {
-    "id": "p_rank_27",
-    "nome": "Foro",
-    "status": "Diarista",
-    "posicao": "Linha",
-    "avatar": "🏃",
-    "velocidade": 2.0,
-    "chute": 2.0,
-    "marcacao": 2.0,
-    "passe": 2.0,
-    "habilidade": 2.0,
-    "overall": 10.0
   }
 ];
 
 export const PAGAMENTOS_INICIAIS = {
-  "p_14": {
+  "j_alex": {
     "Janeiro": 0.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -685,7 +577,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_2": {
+  "j_bahia": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -699,7 +591,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_10": {
+  "j_brug": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -713,7 +605,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_8": {
+  "j_daibert": {
     "Janeiro": 0.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -727,7 +619,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_6": {
+  "j_douglas": {
     "Janeiro": 60.0,
     "Fevereiro": 0.0,
     "Março": 0.0,
@@ -741,7 +633,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_3": {
+  "j_diogo": {
     "Janeiro": 0.0,
     "Fevereiro": 75.0,
     "Março": 0.0,
@@ -751,11 +643,11 @@ export const PAGAMENTOS_INICIAIS = {
     "Julho": 75.0,
     "Agosto": 75.0,
     "Setembro": 75.0,
-    "Outubro": null,
+    "Outubro": 75.0,
     "Novembro": null,
     "Dezembro": null
   },
-  "p_extra_9": {
+  "j_felipe": {
     "Janeiro": 60.0,
     "Fevereiro": 0.0,
     "Março": 0.0,
@@ -769,7 +661,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_5": {
+  "j_felipo": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -783,7 +675,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_extra_11": {
+  "j_rogerio": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -797,7 +689,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_1": {
+  "j_rechan": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -811,7 +703,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": 0.0,
     "Dezembro": 0.0
   },
-  "p_4": {
+  "j_guilherme": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -825,7 +717,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_12": {
+  "j_filipao": {
     "Janeiro": 0.0,
     "Fevereiro": 0.0,
     "Março": 0.0,
@@ -839,12 +731,12 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_extra_15": {
+  "j_lucao": {
     "Janeiro": 0.0,
     "Fevereiro": 0.0,
     "Março": 0.0,
     "Abril": 0.0,
-    "Maio": 0.0,
+    "Maio": 75.0,
     "Junho": 75.0,
     "Julho": 75.0,
     "Agosto": 75.0,
@@ -853,7 +745,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_13": {
+  "j_alan": {
     "Janeiro": 0.0,
     "Fevereiro": 0.0,
     "Março": 0.0,
@@ -867,7 +759,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_extra_17": {
+  "j_fabio": {
     "Janeiro": 60.0,
     "Fevereiro": 0.0,
     "Março": 75.0,
@@ -881,7 +773,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_18": {
+  "j_juan": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -895,7 +787,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_20": {
+  "j_thiago": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -909,7 +801,7 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_30": {
+  "j_victao": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
@@ -923,35 +815,35 @@ export const PAGAMENTOS_INICIAIS = {
     "Novembro": null,
     "Dezembro": null
   },
-  "p_38": {
+  "j_jader": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 75.0,
     "Abril": 0.0,
     "Maio": 0.0,
     "Junho": 0.0,
-    "Julho": 0.0,
+    "Julho": null,
     "Agosto": null,
     "Setembro": null,
     "Outubro": null,
     "Novembro": null,
     "Dezembro": null
   },
-  "p_29": {
+  "j_yuri": {
     "Janeiro": 60.0,
     "Fevereiro": 75.0,
     "Março": 0.0,
     "Abril": 75.0,
     "Maio": 0.0,
     "Junho": 0.0,
-    "Julho": 0.0,
+    "Julho": null,
     "Agosto": null,
     "Setembro": null,
     "Outubro": null,
     "Novembro": null,
     "Dezembro": null
   },
-  "p_23": {
+  "j_thierry": {
     "Janeiro": null,
     "Fevereiro": null,
     "Março": null,
@@ -960,12 +852,12 @@ export const PAGAMENTOS_INICIAIS = {
     "Junho": null,
     "Julho": null,
     "Agosto": null,
-    "Setembro": 0.0,
+    "Setembro": null,
     "Outubro": null,
     "Novembro": null,
     "Dezembro": null
   },
-  "p_extra_25": {
+  "j_fontainha": {
     "Janeiro": null,
     "Fevereiro": null,
     "Março": null,
@@ -987,126 +879,133 @@ export const ENTRADAS_INICIAIS = [
     "descricao": "Caixa 2025",
     "valor": 120.0,
     "categoria": "Caixa Anterior",
-    "data": "2026"
+    "data": "Início 2026"
   },
   {
     "id": "ent_2",
     "descricao": "Diaristas 12/01 a 23/03",
     "valor": 520.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "12/01 a 23/03"
   },
   {
     "id": "ent_3",
     "descricao": "Diaristas 30/03 a 11/05",
     "valor": 340.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "30/03 a 11/05"
   },
   {
     "id": "ent_4",
     "descricao": "Diaristas 18/05 a 22/06",
     "valor": 520.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "18/05 a 22/06"
   },
   {
     "id": "ent_5",
     "descricao": "Diarista 06/07",
     "valor": 20.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "06/07/2026"
   },
   {
     "id": "ent_6",
     "descricao": "Diarista 13/07",
     "valor": 40.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "13/07/2026"
   },
   {
     "id": "ent_7",
     "descricao": "Diaristas 20/07",
     "valor": 40.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "20/07/2026"
   },
   {
     "id": "ent_8",
     "descricao": "Diaristas 27/07",
     "valor": 40.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "27/07/2026"
   },
   {
     "id": "ent_9",
     "descricao": "Diaristas 03/08",
     "valor": 60.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "03/08/2026"
   },
   {
     "id": "ent_10",
     "descricao": "Diaristas 10/08",
     "valor": 60.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "10/08/2026"
   },
   {
     "id": "ent_11",
     "descricao": "Diaristas 17/08",
     "valor": 60.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "17/08/2026"
   },
   {
     "id": "ent_12",
     "descricao": "Diaristas 24/08",
     "valor": 40.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "24/08/2026"
   },
   {
     "id": "ent_13",
     "descricao": "Diaristas 31/08",
     "valor": 60.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "31/08/2026"
   },
   {
     "id": "ent_14",
     "descricao": "Diaristas 14/09",
     "valor": 20.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "14/09/2026"
   },
   {
     "id": "ent_15",
     "descricao": "Diaristas 21/09",
     "valor": 20.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "21/09/2026"
   },
   {
     "id": "ent_16",
     "descricao": "Diaristas 05/10",
     "valor": 20.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "05/10/2026"
   },
   {
     "id": "ent_17",
     "descricao": "Diaristas 12/10",
     "valor": 40.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "12/10/2026"
   },
   {
     "id": "ent_18",
     "descricao": "Diaristas 19/10",
     "valor": 20.0,
     "categoria": "Diarista",
-    "data": "2026"
+    "data": "19/10/2026"
+  },
+  {
+    "id": "ent_19",
+    "descricao": "Diaristas 27/10",
+    "valor": 20.0,
+    "categoria": "Diarista",
+    "data": "27/10/2026"
   }
 ];
 
@@ -1116,589 +1015,218 @@ export const SAIDAS_INICIAIS = [
     "descricao": "Quadra jan/fev",
     "valor": 1380.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Fevereiro"
   },
   {
     "id": "sai_2",
     "descricao": "Quadra março",
     "valor": 1150.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Março"
   },
   {
     "id": "sai_3",
     "descricao": "Quadra abril",
     "valor": 920.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Abril"
   },
   {
     "id": "sai_4",
     "descricao": "Choop brinde",
     "valor": 60.0,
     "categoria": "Chopp/Bebidas",
-    "data": "2026"
+    "data": "Abril"
   },
   {
     "id": "sai_5",
     "descricao": "Quadra maio",
     "valor": 920.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Maio"
   },
   {
     "id": "sai_6",
     "descricao": "Quadra Junho",
     "valor": 1150.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Junho"
   },
   {
     "id": "sai_7",
     "descricao": "Quadra Julho",
     "valor": 920.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Julho"
   },
   {
     "id": "sai_8",
     "descricao": "Quadra Agosto",
     "valor": 1150.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Agosto"
   },
   {
     "id": "sai_9",
     "descricao": "Quadra Setembro",
     "valor": 690.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Setembro"
   },
   {
     "id": "sai_10",
     "descricao": "Churrasco Setembro",
     "valor": 136.0,
     "categoria": "Churrasco/Comida",
-    "data": "2026"
+    "data": "Setembro"
   },
   {
     "id": "sai_11",
     "descricao": "Quadra Outubro",
     "valor": 920.0,
     "categoria": "Quadra",
-    "data": "2026"
+    "data": "Outubro"
   }
 ];
 
-export const DATAS_RODADAS = [
-  "01/06/2026",
-  "09/06/2026",
-  "15/06/2026",
-  "22/06/2026",
-  "06/07/2026",
-  "13/07/2026",
-  "20/07/2026",
-  "27/07/2026",
-  "03/08/2026",
-  "10/08/2026",
-  "17/08/2026",
-  "24/08/2026",
-  "31/08/2026",
-  "14/09/2026",
-  "21/09/2026",
-  "28/09/2026",
-  "05/10/2026",
-  "12/10/2026",
-  "19/10/2026"
-];
-
 export const HISTORICO_PONTUACAO_INICIAL = {
-  "p_2": {
-    "nome": "Bahia",
-    "pontosTotais": 152.5,
-    "pontosPorData": {
-      "01/06/2026": 10.5,
-      "09/06/2026": 7.0,
-      "15/06/2026": 14.5,
-      "22/06/2026": 6.0,
-      "06/07/2026": 16.5,
-      "13/07/2026": 4.5,
-      "20/07/2026": 13.5,
-      "27/07/2026": 15.0,
-      "24/08/2026": 9.0,
-      "14/09/2026": 3.0,
-      "21/09/2026": 14.0,
-      "28/09/2026": 9.5,
-      "05/10/2026": 3.0,
-      "12/10/2026": 12.5,
-      "19/10/2026": 14.0
-    }
-  },
-  "p_extra_11": {
-    "nome": "Rogerio",
-    "pontosTotais": 155.0,
-    "pontosPorData": {
-      "01/06/2026": 9.0,
-      "09/06/2026": 6.0,
-      "15/06/2026": 8.0,
-      "22/06/2026": 6.5,
-      "06/07/2026": 17.5,
-      "13/07/2026": 7.0,
-      "20/07/2026": 10.0,
-      "27/07/2026": 15.0,
-      "03/08/2026": 7.0,
-      "10/08/2026": 5.5,
-      "17/08/2026": 5.0,
-      "24/08/2026": 7.5,
-      "31/08/2026": 4.0,
-      "14/09/2026": 7.5,
-      "21/09/2026": 1.0,
-      "28/09/2026": 10.0,
-      "05/10/2026": 3.5,
-      "12/10/2026": 11.5,
-      "19/10/2026": 13.5
-    }
-  },
-  "p_5": {
-    "nome": "Felipo",
-    "pontosTotais": 147.5,
-    "pontosPorData": {
-      "01/06/2026": 10.0,
-      "09/06/2026": 10.0,
-      "15/06/2026": 8.0,
-      "22/06/2026": 11.0,
-      "06/07/2026": 4.5,
-      "13/07/2026": 8.0,
-      "20/07/2026": 13.5,
-      "27/07/2026": 13.0,
-      "03/08/2026": 6.0,
-      "10/08/2026": 5.0,
-      "17/08/2026": 6.0,
-      "31/08/2026": 4.0,
-      "14/09/2026": 3.5,
-      "21/09/2026": 9.0,
-      "28/09/2026": 4.5,
-      "05/10/2026": 11.0,
-      "12/10/2026": 13.0,
-      "19/10/2026": 7.5
-    }
-  },
-  "p_12": {
-    "nome": "Filipão",
-    "pontosTotais": 153.0,
-    "pontosPorData": {
-      "01/06/2026": 10.0,
-      "09/06/2026": 11.0,
-      "15/06/2026": 12.5,
-      "22/06/2026": 9.5,
-      "06/07/2026": 4.0,
-      "13/07/2026": 11.0,
-      "20/07/2026": 14.0,
-      "10/08/2026": 11.0,
-      "17/08/2026": 5.5,
-      "24/08/2026": 2.0,
-      "31/08/2026": 16.5,
-      "14/09/2026": 14.0,
-      "21/09/2026": 13.0,
-      "28/09/2026": 5.5,
-      "05/10/2026": 6.5,
-      "19/10/2026": 7.0
-    }
-  },
-  "p_7": {
-    "nome": "Felipim",
-    "pontosTotais": 140.5,
-    "pontosPorData": {
-      "01/06/2026": 6.5,
-      "09/06/2026": 11.5,
-      "15/06/2026": 3.5,
-      "22/06/2026": 8.0,
-      "06/07/2026": 17.0,
-      "13/07/2026": 4.5,
-      "20/07/2026": 8.0,
-      "27/07/2026": 12.5,
-      "03/08/2026": 6.0,
-      "10/08/2026": 12.5,
-      "17/08/2026": 5.0,
-      "24/08/2026": 1.5,
-      "31/08/2026": 4.5,
-      "14/09/2026": 6.0,
-      "28/09/2026": 9.0,
-      "05/10/2026": 7.0,
-      "12/10/2026": 10.0,
-      "19/10/2026": 7.5
-    }
-  },
-  "p_11": {
-    "nome": "Lucão",
+  "j_lucao": {
+    "nome": "Lucao",
     "pontosTotais": 176.5,
-    "pontosPorData": {
-      "01/06/2026": 7.0,
-      "09/06/2026": 7.0,
-      "15/06/2026": 4.0,
-      "22/06/2026": 10.5,
-      "06/07/2026": 4.5,
-      "13/07/2026": 11.5,
-      "20/07/2026": 8.5,
-      "27/07/2026": 14.5,
-      "03/08/2026": 5.0,
-      "10/08/2026": 10.0,
-      "17/08/2026": 13.5,
-      "24/08/2026": 17.0,
-      "31/08/2026": 17.5,
-      "14/09/2026": 13.0,
-      "21/09/2026": 8.5,
-      "28/09/2026": 6.5,
-      "12/10/2026": 11.0,
-      "19/10/2026": 7.0
-    }
+    "pontosPorData": {}
   },
-  "p_10": {
-    "nome": "Brug",
-    "pontosTotais": 132.5,
-    "pontosPorData": {
-      "01/06/2026": 10.0,
-      "09/06/2026": 7.0,
-      "22/06/2026": 6.0,
-      "06/07/2026": 17.0,
-      "13/07/2026": 5.5,
-      "20/07/2026": 13.0,
-      "27/07/2026": 7.5,
-      "03/08/2026": 6.5,
-      "10/08/2026": 4.5,
-      "17/08/2026": 4.0,
-      "24/08/2026": 8.0,
-      "31/08/2026": 4.0,
-      "14/09/2026": 3.5,
-      "21/09/2026": 1.0,
-      "28/09/2026": 4.0,
-      "05/10/2026": 12.5,
-      "12/10/2026": 12.0,
-      "19/10/2026": 6.5
-    }
-  },
-  "p_8": {
-    "nome": "Daibert",
-    "pontosTotais": 144.5,
-    "pontosPorData": {
-      "01/06/2026": 6.5,
-      "09/06/2026": 11.0,
-      "15/06/2026": 13.5,
-      "22/06/2026": 7.5,
-      "06/07/2026": 4.0,
-      "13/07/2026": 8.5,
-      "20/07/2026": 8.0,
-      "27/07/2026": 6.5,
-      "03/08/2026": 5.5,
-      "10/08/2026": 11.0,
-      "24/08/2026": 16.5,
-      "14/09/2026": 7.0,
-      "21/09/2026": 1.0,
-      "28/09/2026": 4.5,
-      "05/10/2026": 10.0,
-      "12/10/2026": 9.0,
-      "19/10/2026": 14.5
-    }
-  },
-  "p_4": {
+  "j_guilherme": {
     "nome": "Guilherme",
     "pontosTotais": 175.5,
-    "pontosPorData": {
-      "01/06/2026": 9.5,
-      "09/06/2026": 6.0,
-      "15/06/2026": 8.0,
-      "22/06/2026": 7.5,
-      "06/07/2026": 5.0,
-      "13/07/2026": 7.5,
-      "20/07/2026": 8.0,
-      "27/07/2026": 13.0,
-      "03/08/2026": 5.5,
-      "10/08/2026": 10.5,
-      "17/08/2026": 14.0,
-      "24/08/2026": 1.5,
-      "31/08/2026": 19.5,
-      "14/09/2026": 14.5,
-      "21/09/2026": 13.5,
-      "28/09/2026": 5.5,
-      "05/10/2026": 7.0,
-      "12/10/2026": 11.5,
-      "19/10/2026": 8.0
-    }
+    "pontosPorData": {}
   },
-  "p_3": {
+  "j_diogo": {
     "nome": "Diogo",
     "pontosTotais": 169.5,
-    "pontosPorData": {
-      "01/06/2026": 7.0,
-      "09/06/2026": 7.0,
-      "15/06/2026": 4.5,
-      "22/06/2026": 10.5,
-      "06/07/2026": 4.5,
-      "13/07/2026": 14.5,
-      "20/07/2026": 8.0,
-      "27/07/2026": 6.5,
-      "03/08/2026": 5.5,
-      "10/08/2026": 13.0,
-      "17/08/2026": 6.0,
-      "24/08/2026": 18.0,
-      "31/08/2026": 18.5,
-      "14/09/2026": 6.5,
-      "21/09/2026": 8.0,
-      "28/09/2026": 3.0,
-      "05/10/2026": 10.5,
-      "12/10/2026": 10.5,
-      "19/10/2026": 7.5
-    }
+    "pontosPorData": {}
   },
-  "p_14": {
+  "j_rogerio": {
+    "nome": "Rogerio",
+    "pontosTotais": 155.0,
+    "pontosPorData": {}
+  },
+  "j_filipao": {
+    "nome": "Filipão",
+    "pontosTotais": 153.0,
+    "pontosPorData": {}
+  },
+  "j_bahia": {
+    "nome": "Bahia",
+    "pontosTotais": 152.5,
+    "pontosPorData": {}
+  },
+  "j_felipo": {
+    "nome": "Felipo",
+    "pontosTotais": 147.5,
+    "pontosPorData": {}
+  },
+  "j_daibert": {
+    "nome": "Daibert",
+    "pontosTotais": 144.5,
+    "pontosPorData": {}
+  },
+  "j_felipe": {
+    "nome": "Felipe",
+    "pontosTotais": 140.5,
+    "pontosPorData": {}
+  },
+  "j_alex": {
     "nome": "Alex",
     "pontosTotais": 133.0,
-    "pontosPorData": {
-      "01/06/2026": 6.0,
-      "09/06/2026": 6.0,
-      "15/06/2026": 12.5,
-      "22/06/2026": 6.0,
-      "06/07/2026": 4.0,
-      "13/07/2026": 7.0,
-      "20/07/2026": 7.0,
-      "27/07/2026": 12.0,
-      "03/08/2026": 5.0,
-      "10/08/2026": 11.0,
-      "17/08/2026": 4.0,
-      "24/08/2026": 7.0,
-      "31/08/2026": 4.0,
-      "14/09/2026": 6.0,
-      "21/09/2026": 8.0,
-      "28/09/2026": 8.0,
-      "05/10/2026": 3.0,
-      "12/10/2026": 10.5,
-      "19/10/2026": 6.0
-    }
+    "pontosPorData": {}
   },
-  "p_13": {
-    "nome": "Alan",
-    "pontosTotais": 109.5,
-    "pontosPorData": {
-      "09/06/2026": 7.0,
-      "15/06/2026": 7.0,
-      "22/06/2026": 9.0,
-      "06/07/2026": 15.0,
-      "27/07/2026": 6.5,
-      "03/08/2026": 6.5,
-      "10/08/2026": 4.0,
-      "17/08/2026": 6.0,
-      "24/08/2026": 1.5,
-      "31/08/2026": 4.5,
-      "21/09/2026": 12.5,
-      "28/09/2026": 6.0,
-      "05/10/2026": 10.5,
-      "19/10/2026": 13.5
-    }
+  "j_brug": {
+    "nome": "Brug",
+    "pontosTotais": 132.5,
+    "pontosPorData": {}
   },
-  "p_30": {
+  "j_victao": {
     "nome": "Victão",
     "pontosTotais": 116.0,
-    "pontosPorData": {
-      "13/07/2026": 11.0,
-      "20/07/2026": 13.0,
-      "27/07/2026": 13.0,
-      "03/08/2026": 5.5,
-      "10/08/2026": 11.5,
-      "17/08/2026": 13.0,
-      "24/08/2026": 16.0,
-      "31/08/2026": 4.5,
-      "21/09/2026": 8.0,
-      "05/10/2026": 3.5,
-      "12/10/2026": 9.5,
-      "19/10/2026": 7.5
-    }
+    "pontosPorData": {}
   },
-  "p_39": {
-    "nome": "Ronildo",
-    "pontosTotais": 28.5,
-    "pontosPorData": {
-      "09/06/2026": 10.5,
-      "15/06/2026": 12.5,
-      "22/06/2026": 5.5
-    }
+  "j_alan": {
+    "nome": "Alan",
+    "pontosTotais": 109.5,
+    "pontosPorData": {}
   },
-  "p_6": {
+  "j_douglas": {
     "nome": "Douglas",
     "pontosTotais": 107.0,
-    "pontosPorData": {
-      "06/07/2026": 4.0,
-      "13/07/2026": 10.0,
-      "20/07/2026": 7.0,
-      "27/07/2026": 7.0,
-      "03/08/2026": 6.5,
-      "10/08/2026": 9.0,
-      "17/08/2026": 13.5,
-      "24/08/2026": 9.5,
-      "31/08/2026": 5.5,
-      "14/09/2026": 3.5,
-      "21/09/2026": 1.0,
-      "28/09/2026": 3.0,
-      "05/10/2026": 3.0,
-      "12/10/2026": 10.0,
-      "19/10/2026": 14.5
-    }
+    "pontosPorData": {}
   },
-  "p_23": {
-    "nome": "Thierry",
-    "pontosTotais": 48.5,
-    "pontosPorData": {
-      "01/06/2026": 10.0,
-      "27/07/2026": 13.0,
-      "03/08/2026": 7.5,
-      "10/08/2026": 4.0,
-      "17/08/2026": 6.0,
-      "05/10/2026": 8.0
-    }
-  },
-  "p_extra_17": {
+  "j_fabio": {
     "nome": "Fabio",
     "pontosTotais": 100.0,
-    "pontosPorData": {
-      "06/07/2026": 4.0,
-      "13/07/2026": 4.0,
-      "27/07/2026": 13.5,
-      "03/08/2026": 6.0,
-      "17/08/2026": 4.0,
-      "24/08/2026": 1.0,
-      "31/08/2026": 5.0,
-      "14/09/2026": 14.0,
-      "21/09/2026": 12.5,
-      "28/09/2026": 10.0,
-      "05/10/2026": 6.5,
-      "12/10/2026": 11.5,
-      "19/10/2026": 8.0
-    }
+    "pontosPorData": {}
   },
-  "p_rank_19": {
-    "nome": "André",
-    "pontosTotais": 20.5,
-    "pontosPorData": {
-      "09/06/2026": 6.5,
-      "15/06/2026": 7.0,
-      "22/06/2026": 7.0
-    }
-  },
-  "p_extra_25": {
+  "j_fontainha": {
     "nome": "Fontainha",
     "pontosTotais": 80.5,
-    "pontosPorData": {
-      "06/07/2026": 4.0,
-      "13/07/2026": 5.0,
-      "20/07/2026": 8.0,
-      "03/08/2026": 5.5,
-      "10/08/2026": 9.0,
-      "17/08/2026": 12.5,
-      "24/08/2026": 15.5,
-      "31/08/2026": 17.5,
-      "14/09/2026": 3.5
-    }
+    "pontosPorData": {}
   },
-  "p_36": {
-    "nome": "Neo",
-    "pontosTotais": 10.0,
-    "pontosPorData": {
-      "01/06/2026": 10.0
-    }
+  "j_thierry": {
+    "nome": "Thierry",
+    "pontosTotais": 48.5,
+    "pontosPorData": {}
   },
-  "p_rank_22": {
-    "nome": "Maninho",
-    "pontosTotais": 10.0,
-    "pontosPorData": {
-      "15/06/2026": 3.0,
-      "22/06/2026": 7.0
-    }
-  },
-  "p_27": {
+  "j_wand": {
     "nome": "Wand",
     "pontosTotais": 31.5,
-    "pontosPorData": {
-      "01/06/2026": 9.5,
-      "12/10/2026": 11.0,
-      "19/10/2026": 11.0
-    }
-  },
-  "p_rank_24": {
-    "nome": "Léo Duarte",
-    "pontosTotais": 9.0,
-    "pontosPorData": {
-      "09/06/2026": 6.0,
-      "15/06/2026": 3.0
-    }
-  },
-  "p_34": {
-    "nome": "Guilherme Almeida",
-    "pontosTotais": 9.0,
-    "pontosPorData": {
-      "01/06/2026": 9.0
-    }
-  },
-  "p_29": {
-    "nome": "Yuri",
-    "pontosTotais": 7.0,
-    "pontosPorData": {
-      "20/07/2026": 7.0
-    }
-  },
-  "p_rank_27": {
-    "nome": "Foro",
-    "pontosTotais": 6.0,
-    "pontosPorData": {
-      "20/07/2026": 1.0,
-      "10/08/2026": 1.0,
-      "21/09/2026": 1.0,
-      "12/10/2026": 3.0
-    }
-  },
-  "p_38": {
-    "nome": "Jader",
-    "pontosTotais": 0.0,
     "pontosPorData": {}
   },
-  "p_18": {
-    "nome": "Juan",
-    "pontosTotais": 0.0,
+  "j_ronildo": {
+    "nome": "Ronildo",
+    "pontosTotais": 28.5,
     "pontosPorData": {}
   },
-  "p_1": {
+  "j_rechan": {
     "nome": "Rechan",
     "pontosTotais": 27.0,
-    "pontosPorData": {
-      "31/08/2026": 4.0,
-      "14/09/2026": 15.0,
-      "21/09/2026": 1.0,
-      "28/09/2026": 7.0
-    }
+    "pontosPorData": {}
   },
-  "p_20": {
+  "j_andre": {
+    "nome": "Andre",
+    "pontosTotais": 20.5,
+    "pontosPorData": {}
+  },
+  "j_caio": {
+    "nome": "Caio",
+    "pontosTotais": 17.0,
+    "pontosPorData": {}
+  },
+  "j_peterson": {
+    "nome": "Peterson",
+    "pontosTotais": 20.0,
+    "pontosPorData": {}
+  },
+  "j_yuri": {
+    "nome": "Yuri",
+    "pontosTotais": 7.0,
+    "pontosPorData": {}
+  },
+  "j_foro": {
+    "nome": "Foró",
+    "pontosTotais": 6.0,
+    "pontosPorData": {}
+  },
+  "j_thiago": {
     "nome": "Thiago",
     "pontosTotais": 0.0,
     "pontosPorData": {}
   },
-  "p_22": {
-    "nome": "Caio",
-    "pontosTotais": 17.0,
-    "pontosPorData": {
-      "12/10/2026": 10.0,
-      "19/10/2026": 7.0
-    }
-  },
-  "p_16": {
-    "nome": "Foró",
+  "j_jader": {
+    "nome": "Jader",
     "pontosTotais": 0.0,
     "pontosPorData": {}
   },
-  "p_9": {
-    "nome": "Rogério",
-    "pontosTotais": 0.0,
-    "pontosPorData": {}
-  },
-  "p_15": {
-    "nome": "Fábio",
+  "j_juan": {
+    "nome": "Juan",
     "pontosTotais": 0.0,
     "pontosPorData": {}
   }

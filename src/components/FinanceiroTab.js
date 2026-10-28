@@ -10,12 +10,13 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { MESES } from '../data/initialData';
+import { MESES, STATUS_CORES } from '../data/initialData';
 
 export default function FinanceiroTab({
   config,
   onUpdateConfig,
   players,
+  onUpdatePlayers,
   pagamentos,
   onUpdatePagamentos,
   entradas,
@@ -26,87 +27,151 @@ export default function FinanceiroTab({
   onUpdateCategoriasEntrada,
   categoriasSaida,
   onUpdateCategoriasSaida,
+  ehAdmin = false,
 }) {
-  // Sub-abas: 'mensalidades' | 'entradas' | 'saidas' | 'config'
-  const [secaoAtiva, setSecaoAtiva] = useState('mensalidades');
+  // Sub-visão: 'mensal' | 'grade' | 'entradas' | 'saidas'
+  const [visaoAtiva, setVisaoAtiva] = useState('mensal');
   
-  // Mês selecionado para a aba de mensalidades (padrão: Outubro ou mês atual)
+  // Mês selecionado na visão mensal (padrão: Outubro)
   const [mesSelecionado, setMesSelecionado] = useState('Outubro');
-  const [filtroStatus, setFiltroStatus] = useState('todos'); // 'todos' | 'pagos' | 'pendentes'
+  const [filtroStatusMes, setFiltroStatusMes] = useState('todos'); // 'todos' | 'pagos' | 'pendentes' | 'ausentes'
 
   // Modais
-  const [modalNovaEntrada, setModalNovaEntrada] = useState(false);
-  const [modalNovaSaida, setModalNovaSaida] = useState(false);
   const [modalEditarPagamento, setModalEditarPagamento] = useState(null); // { player, mes, valorAtual }
+  const [modalEditarStatus, setModalEditarStatus] = useState(null); // player
+  const [modalDinheiro, setModalDinheiro] = useState(false);
+  const [modalNovaEntrada, setModalNovaEntrada] = useState(false);
+  const [modalDiaristasRapido, setModalDiaristasRapido] = useState(false);
+  const [modalNovaSaida, setModalNovaSaida] = useState(false);
   const [modalConfig, setModalConfig] = useState(false);
 
-  // Estados dos formulários de entrada/saída
+  // Estados dos formulários
   const [formDescricao, setFormDescricao] = useState('');
   const [formValor, setFormValor] = useState('');
   const [formCategoria, setFormCategoria] = useState('');
   const [formData, setFormData] = useState('');
   const [itemEmEdicaoId, setItemEmEdicaoId] = useState(null);
 
-  // Estados de edição de configuração
+  // Formulário Diaristas Rápido
+  const [diaristasQtd, setDiaristasQtd] = useState('1');
+  const [diaristasData, setDiaristasData] = useState(new Date().toLocaleDateString('pt-BR'));
+
+  // Estado Dinheiro em mãos
+  const [tempDinheiro, setTempDinheiro] = useState(String(config.valorEmDinheiro || 0));
+
+  // Configurações
   const [tempValorMensalidade, setTempValorMensalidade] = useState(String(config.valorMensalidade || 75));
   const [tempDiaVencimento, setTempDiaVencimento] = useState(String(config.diaVencimentoMensalidade || 10));
-  const [novaCatEntrada, setNovaCatEntrada] = useState('');
-  const [novaCatSaida, setNovaCatSaida] = useState('');
+  const [mostrarHistoricoExMensalistas, setMostrarHistoricoExMensalistas] = useState(false);
 
-  // Jogadores que pagam mensalidade (Mensalistas ou Mensalista Ausente / Temporário)
+  // Função auxiliar para identificar mensalistas
+  const isMensalistaStatus = (status) =>
+    status === 'Mensalista' ||
+    status === 'Mensalista Temporário' ||
+    status === 'Mensalista Ausente';
+
+  // Lista ATIVA de mensalistas (exclui diaristas e avulsos)
   const jogadoresMensalistas = useMemo(() => {
-    return players.filter(p => p.status.includes('Mensalista'));
-  }, [players]);
+    const ordemOficial = [
+      'j_alex', 'j_bahia', 'j_brug', 'j_daibert', 'j_douglas', 'j_diogo',
+      'j_felipe', 'j_felipo', 'j_rogerio', 'j_rechan', 'j_guilherme',
+      'j_filipao', 'j_lucao', 'j_alan', 'j_fabio', 'j_victao'
+    ];
+    const mapa = new Map(players.map(p => [p.id, p]));
+    const lista = [];
 
-  // Cálculos Gerais do Caixa
-  const totaisCalculados = useMemo(() => {
-    // 1. Soma de todas as mensalidades pagas de todos os meses
-    let totalMensalidadesGeral = 0;
-    let totalMensalidadesMes = 0;
-    let totalPagoMesQtd = 0;
-    let totalPendenteMesQtd = 0;
-
-    jogadoresMensalistas.forEach(p => {
-      const pPagamentos = pagamentos[p.id] || {};
-      
-      // Soma geral de todos os meses
-      MESES.forEach(m => {
-        const val = pPagamentos[m];
-        if (typeof val === 'number' && val > 0) {
-          totalMensalidadesGeral += val;
-        }
-      });
-
-      // Dados do mês selecionado
-      const valMes = pPagamentos[mesSelecionado];
-      if (typeof valMes === 'number' && valMes > 0) {
-        totalMensalidadesMes += valMes;
-        totalPagoMesQtd++;
-      } else {
-        totalPendenteMesQtd++;
+    // Adiciona na ordem oficial apenas os que são Mensalistas, Mensalistas Temporários ou Mensalistas Ausentes
+    ordemOficial.forEach(id => {
+      const p = mapa.get(id);
+      if (p && isMensalistaStatus(p.status)) {
+        lista.push(p);
       }
     });
 
-    // 2. Soma de Entradas avulsas
+    // Adiciona quaisquer outros mensalistas criados pelo usuário
+    players.forEach(p => {
+      if (!ordemOficial.includes(p.id) && isMensalistaStatus(p.status)) {
+        lista.push(p);
+      }
+    });
+
+    return lista;
+  }, [players]);
+
+  // Ex-mensalistas (hoje Diaristas) que possuem histórico de pagamentos anteriores
+  const exMensalistasComHistorico = useMemo(() => {
+    return players.filter(p => {
+      if (isMensalistaStatus(p.status)) return false;
+      const pPag = pagamentos[p.id] || {};
+      return Object.values(pPag).some(v => typeof v === 'number' && v > 0);
+    });
+  }, [players, pagamentos]);
+
+  // Cálculos Gerais do Caixa (Fórmula da planilha: Mensalidades + Entradas - Saídas)
+  const totais = useMemo(() => {
+    let totalMensalidadesGeral = 0;
+    let totalExMensalistas = 0;
+    let totalMensalidadesMes = 0;
+    let qtdPagosMes = 0;
+    let qtdAusentesMes = 0;
+    let qtdPendentesMes = 0;
+
+    // 1. MANTÉM TODOS OS VALORES PAGOS ANTERIORMENTE NO CAIXA (inclusive de quem hoje é diarista)
+    Object.keys(pagamentos).forEach((pId) => {
+      const pPag = pagamentos[pId] || {};
+      const playerObj = players.find(x => x.id === pId);
+      const isMens = playerObj ? isMensalistaStatus(playerObj.status) : false;
+
+      MESES.forEach((m) => {
+        const val = pPag[m];
+        if (typeof val === 'number' && val > 0) {
+          totalMensalidadesGeral += val;
+          if (!isMens) {
+            totalExMensalistas += val;
+          }
+        }
+      });
+    });
+
+    // 2. MENSALIDADES DO MÊS SELECIONADO: Apenas para quem é Mensalista / Mensalista Temporário
+    jogadoresMensalistas.forEach((p) => {
+      const pPag = pagamentos[p.id] || {};
+      const valMes = pPag[mesSelecionado];
+      if (typeof valMes === 'number') {
+        if (valMes > 0) {
+          totalMensalidadesMes += valMes;
+          qtdPagosMes++;
+        } else if (valMes === 0) {
+          qtdAusentesMes++;
+        }
+      } else {
+        qtdPendentesMes++;
+      }
+    });
+
     const totalEntradasAvulsas = entradas.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
-
-    // 3. Soma de Saídas / Gastos
+    const totalEntradasCompleto = totalMensalidadesGeral + totalEntradasAvulsas;
     const totalSaidasGeral = saidas.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
+    const saldoTotal = totalEntradasCompleto - totalSaidasGeral;
 
-    // 4. Total em conta (Saldo)
-    const saldoTotal = (totalMensalidadesGeral + totalEntradasAvulsas) - totalSaidasGeral;
+    const valorDinheiro = Number(config.valorEmDinheiro) || 0;
+    const saldoNoBanco = saldoTotal - valorDinheiro;
 
     return {
       totalMensalidadesGeral,
+      totalExMensalistas,
       totalEntradasAvulsas,
-      totalEntradasCompleto: totalMensalidadesGeral + totalEntradasAvulsas,
+      totalEntradasCompleto,
       totalSaidasGeral,
       saldoTotal,
+      valorDinheiro,
+      saldoNoBanco,
       totalMensalidadesMes,
-      totalPagoMesQtd,
-      totalPendenteMesQtd,
+      qtdPagosMes,
+      qtdAusentesMes,
+      qtdPendentesMes,
     };
-  }, [jogadoresMensalistas, pagamentos, entradas, saidas, mesSelecionado]);
+  }, [players, jogadoresMensalistas, pagamentos, entradas, saidas, mesSelecionado, config.valorEmDinheiro]);
 
   const alertSimples = (titulo, mensagem) => {
     if (Platform.OS === 'web') {
@@ -116,56 +181,77 @@ export default function FinanceiroTab({
     }
   };
 
-  // Alternar pagamento rápido (se pago -> remove, se pendente -> define valor padrão da config)
-  const togglePagamentoRapido = (playerId) => {
-    const pPagamentos = { ...(pagamentos[playerId] || {}) };
-    const valorAtual = pPagamentos[mesSelecionado];
-
-    if (valorAtual && valorAtual > 0) {
-      // Desmarcar
-      pPagamentos[mesSelecionado] = 0;
-    } else {
-      // Marcar com valor configurado
-      pPagamentos[mesSelecionado] = Number(config.valorMensalidade) || 75.0;
+  const definirPagamentoMes = (playerId, mes, tipo, valorPersonalizado = null) => {
+    const pPag = { ...(pagamentos[playerId] || {}) };
+    
+    if (tipo === 'pago') {
+      const padrao = mes === 'Janeiro' ? 60.0 : (Number(config.valorMensalidade) || 75.0);
+      pPag[mes] = valorPersonalizado !== null ? valorPersonalizado : padrao;
+    } else if (tipo === 'ausente') {
+      pPag[mes] = 0.0;
+    } else if (tipo === 'pendente') {
+      pPag[mes] = null;
     }
-
-    const novosPagamentos = {
-      ...pagamentos,
-      [playerId]: pPagamentos,
-    };
-    onUpdatePagamentos(novosPagamentos);
-  };
-
-  // Salvar valor personalizado do pagamento
-  const salvarPagamentoPersonalizado = (valorNum) => {
-    if (!modalEditarPagamento) return;
-    const { player, mes } = modalEditarPagamento;
-    const pPagamentos = { ...(pagamentos[player.id] || {}) };
-    pPagamentos[mes] = valorNum;
 
     onUpdatePagamentos({
       ...pagamentos,
-      [player.id]: pPagamentos,
+      [playerId]: pPag,
+    });
+  };
+
+  const salvarPagamentoModal = (valorNum) => {
+    if (!modalEditarPagamento) return;
+    const { player, mes } = modalEditarPagamento;
+    const pPag = { ...(pagamentos[player.id] || {}) };
+    pPag[mes] = valorNum;
+
+    onUpdatePagamentos({
+      ...pagamentos,
+      [player.id]: pPag,
     });
     setModalEditarPagamento(null);
   };
 
-  // Abrir modal de nova entrada ou edição
-  const abrirModalEntrada = (item = null) => {
-    if (item) {
-      setItemEmEdicaoId(item.id);
-      setFormDescricao(item.descricao);
-      setFormValor(String(item.valor));
-      setFormCategoria(item.categoria || categoriasEntrada[0]);
-      setFormData(item.data || '');
-    } else {
-      setItemEmEdicaoId(null);
-      setFormDescricao('');
-      setFormValor('');
-      setFormCategoria(categoriasEntrada[0] || 'Diarista');
-      setFormData(new Date().toLocaleDateString('pt-BR'));
+  const salvarNovoStatusJogador = (novoStatus) => {
+    if (!modalEditarStatus) return;
+    const novosPlayers = players.map(p =>
+      p.id === modalEditarStatus.id ? { ...p, status: novoStatus } : p
+    );
+    onUpdatePlayers(novosPlayers);
+    setModalEditarStatus(null);
+  };
+
+  const salvarDinheiroEmMaos = () => {
+    const num = parseFloat(tempDinheiro.replace(',', '.'));
+    onUpdateConfig({
+      ...config,
+      valorEmDinheiro: isNaN(num) ? 0.0 : num,
+    });
+    setModalDinheiro(false);
+  };
+
+  const salvarDiaristasRapido = () => {
+    const qtd = parseInt(diaristasQtd, 10);
+    if (isNaN(qtd) || qtd <= 0) {
+      alertSimples('Quantidade Inválida', 'Informe a quantidade de diaristas.');
+      return;
     }
-    setModalNovaEntrada(true);
+    const valorUnitario = Number(config.valorDiarista) || 20.0;
+    const totalDiaristas = qtd * valorUnitario;
+    const desc = qtd === 1 ? `Diarista ${diaristasData}` : `Diaristas ${diaristasData}`;
+
+    const novasEntradas = [
+      {
+        id: `ent_${Date.now()}`,
+        descricao: desc,
+        valor: totalDiaristas,
+        categoria: 'Diarista',
+        data: diaristasData,
+      },
+      ...entradas,
+    ];
+    onUpdateEntradas(novasEntradas);
+    setModalDiaristasRapido(false);
   };
 
   const salvarEntrada = () => {
@@ -175,19 +261,19 @@ export default function FinanceiroTab({
     }
     const valorNum = parseFloat(formValor.replace(',', '.'));
     if (isNaN(valorNum) || valorNum < 0) {
-      alertSimples('Valor Inválido', 'Insira um número válido para o valor.');
+      alertSimples('Valor Inválido', 'Insira um valor numérico válido.');
       return;
     }
 
-    let novasEntradas = [...entradas];
+    let novas = [...entradas];
     if (itemEmEdicaoId) {
-      novasEntradas = novasEntradas.map(e =>
+      novas = novas.map(e =>
         e.id === itemEmEdicaoId
           ? { ...e, descricao: formDescricao, valor: valorNum, categoria: formCategoria, data: formData }
           : e
       );
     } else {
-      novasEntradas.unshift({
+      novas.unshift({
         id: `ent_${Date.now()}`,
         descricao: formDescricao,
         valor: valorNum,
@@ -195,32 +281,8 @@ export default function FinanceiroTab({
         data: formData || new Date().toLocaleDateString('pt-BR'),
       });
     }
-
-    onUpdateEntradas(novasEntradas);
-    setModalNovaEntrada(false);
-  };
-
-  const excluirEntrada = (id) => {
-    const novas = entradas.filter(e => e.id !== id);
     onUpdateEntradas(novas);
-  };
-
-  // Abrir modal de nova saída ou edição
-  const abrirModalSaida = (item = null) => {
-    if (item) {
-      setItemEmEdicaoId(item.id);
-      setFormDescricao(item.descricao);
-      setFormValor(String(item.valor));
-      setFormCategoria(item.categoria || categoriasSaida[0]);
-      setFormData(item.data || '');
-    } else {
-      setItemEmEdicaoId(null);
-      setFormDescricao('');
-      setFormValor('');
-      setFormCategoria(categoriasSaida[0] || 'Quadra');
-      setFormData(new Date().toLocaleDateString('pt-BR'));
-    }
-    setModalNovaSaida(true);
+    setModalNovaEntrada(false);
   };
 
   const salvarSaida = () => {
@@ -230,19 +292,19 @@ export default function FinanceiroTab({
     }
     const valorNum = parseFloat(formValor.replace(',', '.'));
     if (isNaN(valorNum) || valorNum < 0) {
-      alertSimples('Valor Inválido', 'Insira um número válido para o valor.');
+      alertSimples('Valor Inválido', 'Insira um valor numérico válido.');
       return;
     }
 
-    let novasSaidas = [...saidas];
+    let novas = [...saidas];
     if (itemEmEdicaoId) {
-      novasSaidas = novasSaidas.map(s =>
+      novas = novas.map(s =>
         s.id === itemEmEdicaoId
           ? { ...s, descricao: formDescricao, valor: valorNum, categoria: formCategoria, data: formData }
           : s
       );
     } else {
-      novasSaidas.unshift({
+      novas.unshift({
         id: `sai_${Date.now()}`,
         descricao: formDescricao,
         valor: valorNum,
@@ -250,122 +312,132 @@ export default function FinanceiroTab({
         data: formData || new Date().toLocaleDateString('pt-BR'),
       });
     }
-
-    onUpdateSaidas(novasSaidas);
+    onUpdateSaidas(novas);
     setModalNovaSaida(false);
   };
 
-  const excluirSaida = (id) => {
-    const novas = saidas.filter(s => s.id !== id);
-    onUpdateSaidas(novas);
-  };
-
-  // Salvar configurações
-  const salvarConfiguracoes = () => {
-    const vMensalidade = parseFloat(tempValorMensalidade.replace(',', '.'));
-    const dVencimento = parseInt(tempDiaVencimento, 10);
-
-    onUpdateConfig({
-      ...config,
-      valorMensalidade: isNaN(vMensalidade) ? 75.0 : vMensalidade,
-      diaVencimentoMensalidade: isNaN(dVencimento) ? 10 : dVencimento,
-    });
-    setModalConfig(false);
-    alertSimples('Configurações Salvas', 'Valores atualizados com sucesso!');
-  };
-
-  // Adicionar categoria
-  const adicionarCatEntrada = () => {
-    if (!novaCatEntrada.trim()) return;
-    if (!categoriasEntrada.includes(novaCatEntrada.trim())) {
-      onUpdateCategoriasEntrada([...categoriasEntrada, novaCatEntrada.trim()]);
-    }
-    setNovaCatEntrada('');
-  };
-
-  const adicionarCatSaida = () => {
-    if (!novaCatSaida.trim()) return;
-    if (!categoriasSaida.includes(novaCatSaida.trim())) {
-      onUpdateCategoriasSaida([...categoriasSaida, novaCatSaida.trim()]);
-    }
-    setNovaCatSaida('');
-  };
-
-  // Jogadores filtrados para exibição no mês selecionado
-  const mensalistasExibicao = useMemo(() => {
+  const jogadoresExibicaoMes = useMemo(() => {
     return jogadoresMensalistas.filter(p => {
       const val = (pagamentos[p.id] || {})[mesSelecionado];
-      const pago = typeof val === 'number' && val > 0;
-      if (filtroStatus === 'pagos') return pago;
-      if (filtroStatus === 'pendentes') return !pago;
+      const estaPago = typeof val === 'number' && val > 0;
+      const estaAusente = val === 0;
+      const estaPendente = val === null || val === undefined;
+
+      if (filtroStatusMes === 'pagos') return estaPago;
+      if (filtroStatusMes === 'ausentes') return estaAusente;
+      if (filtroStatusMes === 'pendentes') return estaPendente;
       return true;
     });
-  }, [jogadoresMensalistas, pagamentos, mesSelecionado, filtroStatus]);
+  }, [jogadoresMensalistas, pagamentos, mesSelecionado, filtroStatusMes]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* CARD PRINCIPAL DO CAIXA / SALDO */}
+      
+      {/* 1. CARDS DE RESUMO FINANCEIRO */}
       <View style={styles.cardResumoGeral}>
         <View style={styles.resumoTopo}>
-          <Text style={styles.resumoTitulo}>💰 SALDO TOTAL EM CONTA</Text>
-          <TouchableOpacity onPress={() => setModalConfig(true)} style={styles.btnConfigIcon}>
-            <Text style={styles.btnConfigIconText}>⚙️ Ajustes</Text>
+          <Text style={styles.resumoTitulo}>💰 SALDO TOTAL EM CAIXA</Text>
+          {ehAdmin && (
+            <TouchableOpacity onPress={() => setModalConfig(true)} style={styles.btnConfigIcon}>
+              <Text style={styles.btnConfigIconText}>⚙️ Ajustes</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <Text style={[styles.saldoValor, { color: totais.saldoTotal >= 0 ? '#4ade80' : '#f87171' }]}>
+          R$ {totais.saldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+        </Text>
+
+        {/* DIVISÃO ENTRE CONTA BANCÁRIA E DINHEIRO VIVO EM MÃOS */}
+        <View style={styles.linhaDivisaoDinheiro}>
+          <View style={styles.boxSubSaldo}>
+            <Text style={styles.labelSubSaldo}>💳 Na Conta / Pix:</Text>
+            <Text style={styles.valorSubSaldoBanco}>
+              R$ {totais.saldoNoBanco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Text>
+          </View>
+
+          <View style={styles.divisorVertical} />
+
+          <TouchableOpacity
+            style={styles.boxSubSaldoDinheiro}
+            disabled={!ehAdmin}
+            onPress={() => {
+              if (ehAdmin) {
+                setTempDinheiro(String(config.valorEmDinheiro || 0));
+                setModalDinheiro(true);
+              }
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.labelSubSaldo}>💵 Em Dinheiro (Com você):</Text>
+              {ehAdmin && <Text style={styles.linkEditarDinheiro}>✏️</Text>}
+            </View>
+            <Text style={styles.valorSubSaldoDinheiro}>
+              R$ {totais.valorDinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.saldoValor, { color: totaisCalculados.saldoTotal >= 0 ? '#4ade80' : '#f87171' }]}>
-          R$ {totaisCalculados.saldoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-        </Text>
-
+        {/* MÉTRICAS DE ENTRADAS VS SAÍDAS */}
         <View style={styles.resumoMetricasLinha}>
           <View style={styles.metricaBox}>
-            <Text style={styles.metricaLabel}>Total Entradas</Text>
+            <Text style={styles.metricaLabel}>Total de Entradas</Text>
             <Text style={styles.metricaValorVerde}>
-              + R$ {totaisCalculados.totalEntradasCompleto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              + R$ {totais.totalEntradasCompleto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Text>
           </View>
           <View style={styles.metricaDivisor} />
           <View style={styles.metricaBox}>
-            <Text style={styles.metricaLabel}>Total Saídas</Text>
+            <Text style={styles.metricaLabel}>Total de Saídas (Gastos)</Text>
             <Text style={styles.metricaValorVermelho}>
-              - R$ {totaisCalculados.totalSaidasGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              - R$ {totais.totalSaidasGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* SELETOR DE SEÇÃO (SUB-ABAS) */}
+      {/* 2. SELETOR DE VISÃO (SUB-ABAS) */}
       <View style={styles.subAbasContainer}>
         <TouchableOpacity
-          style={[styles.subAbaBotao, secaoAtiva === 'mensalidades' && styles.subAbaAtiva]}
-          onPress={() => setSecaoAtiva('mensalidades')}
+          style={[styles.subAbaBotao, visaoAtiva === 'mensal' && styles.subAbaAtiva]}
+          onPress={() => setVisaoAtiva('mensal')}
         >
-          <Text style={[styles.subAbaTexto, secaoAtiva === 'mensalidades' && styles.subAbaTextoAtiva]}>
-            🗓️ Mensalidades
+          <Text style={[styles.subAbaTexto, visaoAtiva === 'mensal' && styles.subAbaTextoAtiva]}>
+            🗓️ Mensal ({mesSelecionado})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.subAbaBotao, secaoAtiva === 'entradas' && styles.subAbaAtiva]}
-          onPress={() => setSecaoAtiva('entradas')}
+          style={[styles.subAbaBotao, visaoAtiva === 'grade' && styles.subAbaAtiva]}
+          onPress={() => setVisaoAtiva('grade')}
         >
-          <Text style={[styles.subAbaTexto, secaoAtiva === 'entradas' && styles.subAbaTextoAtiva]}>
+          <Text style={[styles.subAbaTexto, visaoAtiva === 'grade' && styles.subAbaTextoAtiva]}>
+            📊 Grade Anual
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.subAbaBotao, visaoAtiva === 'entradas' && styles.subAbaAtiva]}
+          onPress={() => setVisaoAtiva('entradas')}
+        >
+          <Text style={[styles.subAbaTexto, visaoAtiva === 'entradas' && styles.subAbaTextoAtiva]}>
             📥 Entradas ({entradas.length})
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.subAbaBotao, secaoAtiva === 'saidas' && styles.subAbaAtiva]}
-          onPress={() => setSecaoAtiva('saidas')}
+          style={[styles.subAbaBotao, visaoAtiva === 'saidas' && styles.subAbaAtiva]}
+          onPress={() => setVisaoAtiva('saidas')}
         >
-          <Text style={[styles.subAbaTexto, secaoAtiva === 'saidas' && styles.subAbaTextoAtiva]}>
+          <Text style={[styles.subAbaTexto, visaoAtiva === 'saidas' && styles.subAbaTextoAtiva]}>
             📤 Saídas ({saidas.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* SEÇÃO 1: MENSALIDADES */}
-      {secaoAtiva === 'mensalidades' && (
+      {/* 3. VISÃO 1: MENSAL (QUEM JÁ PAGOU E QUEM AINDA NÃO PAGOU NESTE MÊS) */}
+      {visaoAtiva === 'mensal' && (
         <View>
           {/* SELETOR HORIZONTAL DE MESES */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollMeses}>
@@ -388,13 +460,13 @@ export default function FinanceiroTab({
               <View>
                 <Text style={styles.cardMesTitulo}>Mensalidades de {mesSelecionado}</Text>
                 <Text style={styles.cardMesSub}>
-                  Vencimento dia {config.diaVencimentoMensalidade || 10} • Valor padrão: R$ {Number(config.valorMensalidade).toFixed(2)}
+                  {mesSelecionado === 'Janeiro' ? 'Mensalidade inicial: R$ 60,00' : 'Mensalidade padrão: R$ 75,00'} • Vencimento dia {config.diaVencimentoMensalidade || 10}
                 </Text>
               </View>
               <View style={styles.badgeArrecadado}>
                 <Text style={styles.badgeArrecadadoLabel}>Arrecadado:</Text>
                 <Text style={styles.badgeArrecadadoValor}>
-                  R$ {totaisCalculados.totalMensalidadesMes.toFixed(2)}
+                  R$ {totais.totalMensalidadesMes.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -407,7 +479,7 @@ export default function FinanceiroTab({
                   {
                     width: `${
                       jogadoresMensalistas.length > 0
-                        ? (totaisCalculados.totalPagoMesQtd / jogadoresMensalistas.length) * 100
+                        ? (totais.qtdPagosMes / jogadoresMensalistas.length) * 100
                         : 0
                     }%`,
                   },
@@ -417,83 +489,162 @@ export default function FinanceiroTab({
 
             <View style={styles.progressoTextos}>
               <Text style={styles.progressoTxtVerde}>
-                ✅ {totaisCalculados.totalPagoMesQtd} pagaram
+                ✅ {totais.qtdPagosMes} Pagaram
+              </Text>
+              <Text style={styles.progressoTxtCinza}>
+                ⏸️ {totais.qtdAusentesMes} Ausentes / Lesão (R$ 0)
               </Text>
               <Text style={styles.progressoTxtVermelho}>
-                ❌ {totaisCalculados.totalPendenteMesQtd} pendentes
+                ❌ {totais.qtdPendentesMes} Pendentes
               </Text>
             </View>
 
-            {/* FILTROS: TODOS / PAGOS / PENDENTES */}
+            {/* FILTROS RÁPIDOS */}
             <View style={styles.filtrosLinha}>
-              <TouchableOpacity
-                style={[styles.filtroBtn, filtroStatus === 'todos' && styles.filtroBtnAtivo]}
-                onPress={() => setFiltroStatus('todos')}
-              >
-                <Text style={[styles.filtroBtnTxt, filtroStatus === 'todos' && styles.filtroBtnTxtAtivo]}>
-                  Todos ({jogadoresMensalistas.length})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filtroBtn, filtroStatus === 'pagos' && styles.filtroBtnAtivo]}
-                onPress={() => setFiltroStatus('pagos')}
-              >
-                <Text style={[styles.filtroBtnTxt, filtroStatus === 'pagos' && styles.filtroBtnTxtAtivo]}>
-                  Pagos ({totaisCalculados.totalPagoMesQtd})
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.filtroBtn, filtroStatus === 'pendentes' && styles.filtroBtnAtivo]}
-                onPress={() => setFiltroStatus('pendentes')}
-              >
-                <Text style={[styles.filtroBtnTxt, filtroStatus === 'pendentes' && styles.filtroBtnTxtAtivo]}>
-                  Pendentes ({totaisCalculados.totalPendenteMesQtd})
-                </Text>
-              </TouchableOpacity>
+              {[
+                { key: 'todos', label: `Mensalistas (${jogadoresMensalistas.length})` },
+                { key: 'pagos', label: `Pagos (${totais.qtdPagosMes})` },
+                { key: 'pendentes', label: `Pendentes (${totais.qtdPendentesMes})` },
+                { key: 'ausentes', label: `Ausentes (${totais.qtdAusentesMes})` },
+              ].map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.filtroBtn, filtroStatusMes === f.key && styles.filtroBtnAtivo]}
+                  onPress={() => setFiltroStatusMes(f.key)}
+                >
+                  <Text style={[styles.filtroBtnTxt, filtroStatusMes === f.key && styles.filtroBtnTxtAtivo]}>
+                    {f.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          {/* LISTA DE JOGADORES MENSALISTAS */}
+          {/* ALERTA DE DÍVIDAS / PAGAMENTO PARCIAL NO MÊS SELECIONADO */}
+          {(() => {
+            const devedoresMes = jogadoresMensalistas.filter((p) => {
+              const val = (pagamentos[p.id] || {})[mesSelecionado];
+              const valorEsperado = mesSelecionado === 'Janeiro' ? 60.0 : (Number(config.valorMensalidade) || 75.0);
+              return typeof val === 'number' && val > 0 && val < valorEsperado;
+            });
+
+            if (devedoresMes.length === 0) return null;
+
+            return (
+              <View style={styles.bannerAlertaDivida}>
+                <Text style={styles.bannerAlertaDividaTitulo}>⚠️ Pagamento Parcial Detectado:</Text>
+                {devedoresMes.map(p => {
+                  const val = (pagamentos[p.id] || {})[mesSelecionado];
+                  const vEsp = mesSelecionado === 'Janeiro' ? 60.0 : (Number(config.valorMensalidade) || 75.0);
+                  return (
+                    <Text key={p.id} style={styles.bannerAlertaDividaTxt}>
+                      • <Text style={{ fontWeight: 'bold' }}>{p.nome}</Text> pagou R$ {val.toFixed(2)}, devendo <Text style={{ fontWeight: 'bold', color: '#b91c1c' }}>R$ {(vEsp - val).toFixed(2)}</Text> para integralizar os R$ {vEsp.toFixed(2)}.
+                    </Text>
+                  );
+                })}
+              </View>
+            );
+          })()}
+
+          {/* LISTA DOS JOGADORES NO MÊS SELECIONADO */}
           <View style={styles.listaJogadoresCaixa}>
-            {mensalistasExibicao.map((p) => {
+            {jogadoresExibicaoMes.map((p) => {
               const valorPago = (pagamentos[p.id] || {})[mesSelecionado];
               const estaPago = typeof valorPago === 'number' && valorPago > 0;
+              const estaAusente = valorPago === 0;
+
+              const statusEstilo = STATUS_CORES[p.status] || STATUS_CORES['Mensalista'];
+
+              const valorEsperado = mesSelecionado === 'Janeiro' ? 60.0 : (Number(config.valorMensalidade) || 75.0);
+              const deveParte = estaPago && valorPago < valorEsperado;
 
               return (
                 <View key={p.id} style={styles.itemMensalista}>
+                  {/* IDENTIFICAÇÃO DO JOGADOR */}
                   <View style={styles.itemInfo}>
                     <Text style={styles.itemAvatar}>{p.avatar || '⚽'}</Text>
-                    <View>
-                      <Text style={styles.itemNome}>{p.nome}</Text>
-                      <Text style={styles.itemStatus}>
-                        {p.status} {estaPago ? `• R$ ${valorPago.toFixed(2)}` : '• Pendente'}
-                      </Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.itemNome}>{p.nome}</Text>
+                        
+                        {/* BADGE DE STATUS CLICÁVEL PARA MUDAR FACILMENTE (ADMIN APENAS) */}
+                        <TouchableOpacity
+                          disabled={!ehAdmin}
+                          style={[styles.badgeStatusMini, { backgroundColor: statusEstilo.bg, borderColor: statusEstilo.border }]}
+                          onPress={() => {
+                            if (ehAdmin) setModalEditarStatus(p);
+                          }}
+                        >
+                          <Text style={[styles.badgeStatusMiniTxt, { color: statusEstilo.text }]}>
+                            {p.status} {ehAdmin ? '▾' : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* INDICAÇÃO DE STATUS DE PAGAMENTO */}
+                      {estaPago ? (
+                        <Text style={styles.itemPagamentoVerde}>
+                          ✅ Pagou R$ {valorPago.toFixed(2)}
+                          {deveParte ? ` (⚠️ Devendo R$ ${(valorEsperado - valorPago).toFixed(2)})` : ''}
+                        </Text>
+                      ) : estaAusente ? (
+                        <Text style={styles.itemPagamentoAusente}>
+                          ⏸️ Ausente / Lesão (R$ 0,00)
+                        </Text>
+                      ) : (
+                        <Text style={styles.itemPagamentoPendente}>
+                          ❌ Ainda não pagou em {mesSelecionado}
+                        </Text>
+                      )}
                     </View>
                   </View>
 
-                  <View style={styles.itemAcoes}>
-                    <TouchableOpacity
-                      onPress={() => togglePagamentoRapido(p.id)}
-                      style={[styles.btnStatusPagamento, estaPago ? styles.btnPago : styles.btnPendente]}
-                    >
-                      <Text style={styles.btnStatusTexto}>
-                        {estaPago ? '✅ PAGO' : '❌ PENDENTE'}
-                      </Text>
-                    </TouchableOpacity>
+                  {/* AÇÕES RÁPIDAS DE 1 TOQUE (APENAS ADMINISTRADOR) */}
+                  {ehAdmin && (
+                    <View style={styles.itemAcoesLinha}>
+                      {/* Botão Pagou */}
+                      <TouchableOpacity
+                        onPress={() => definirPagamentoMes(p.id, mesSelecionado, 'pago')}
+                        style={[styles.btnAcaoPagar, estaPago && !deveParte && styles.btnAcaoSelecionada]}
+                      >
+                        <Text style={styles.btnAcaoPagarTxt}>
+                          {mesSelecionado === 'Janeiro' ? 'R$ 60' : 'R$ 75'}
+                        </Text>
+                      </TouchableOpacity>
 
-                    <TouchableOpacity
-                      onPress={() =>
-                        setModalEditarPagamento({
-                          player: p,
-                          mes: mesSelecionado,
-                          valorAtual: String(valorPago || config.valorMensalidade || 75),
-                        })
-                      }
-                      style={styles.btnEditarValor}
-                    >
-                      <Text style={styles.btnEditarValorTexto}>✏️</Text>
-                    </TouchableOpacity>
-                  </View>
+                      {/* Botão Ausente R$ 0 */}
+                      <TouchableOpacity
+                        onPress={() => definirPagamentoMes(p.id, mesSelecionado, 'ausente')}
+                        style={[styles.btnAcaoAusente, estaAusente && styles.btnAcaoSelecionada]}
+                      >
+                        <Text style={styles.btnAcaoAusenteTxt}>R$ 0</Text>
+                      </TouchableOpacity>
+
+                      {/* Botão Limpar / Pendente */}
+                      {valorPago !== null && valorPago !== undefined && (
+                        <TouchableOpacity
+                          onPress={() => definirPagamentoMes(p.id, mesSelecionado, 'pendente')}
+                          style={styles.btnAcaoLimpar}
+                        >
+                          <Text style={styles.btnAcaoLimparTxt}>✕</Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* Botão Personalizar Valor */}
+                      <TouchableOpacity
+                        onPress={() =>
+                          setModalEditarPagamento({
+                            player: p,
+                            mes: mesSelecionado,
+                            valorAtual: valorPago !== null && valorPago !== undefined ? String(valorPago) : (mesSelecionado === 'Janeiro' ? '60' : String(config.valorMensalidade || 75)),
+                          })
+                        }
+                        style={styles.btnEditarValor}
+                      >
+                        <Text style={styles.btnEditarValorTexto}>✏️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -501,19 +652,226 @@ export default function FinanceiroTab({
         </View>
       )}
 
-      {/* SEÇÃO 2: ENTRADAS AVULSAS */}
-      {secaoAtiva === 'entradas' && (
+      {/* 4. VISÃO 2: GRADE ANUAL COMPLETA (ESTILO PLANILHA GOOGLE SHEETS) */}
+      {visaoAtiva === 'grade' && (
+        <View style={styles.cardGradeAnual}>
+          <View style={styles.gradeHeaderRow}>
+            <View>
+              <Text style={styles.cardGradeTitulo}>📊 Tabela Anual de Pagamentos 2026</Text>
+              <Text style={styles.cardGradeSub}>
+                Verde = Pagou • Cinza = R$ 0 (Ausente/Lesão) • Branco = Pendente
+              </Text>
+            </View>
+          </View>
+
+          {/* TABELA COM SCROLL HORIZONTAL */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.gradeScroll}>
+            <View>
+              {/* LINHA DE CABEÇALHO */}
+              <View style={styles.gradeLinhaHeader}>
+                <Text style={[styles.gradeColHeader, { width: 120, textAlign: 'left' }]}>JOGADOR</Text>
+                <Text style={[styles.gradeColHeader, { width: 130, textAlign: 'center' }]}>STATUS</Text>
+                {MESES.map((m) => (
+                  <Text key={m} style={[styles.gradeColHeader, { width: 68, textAlign: 'center' }]}>
+                    {m.slice(0, 3)}
+                  </Text>
+                ))}
+              </View>
+
+              {/* LINHAS DOS MENSALISTAS */}
+              {jogadoresMensalistas.map((p) => {
+                const statusEstilo = STATUS_CORES[p.status] || STATUS_CORES['Mensalista'];
+                const pPag = pagamentos[p.id] || {};
+
+                return (
+                  <View key={p.id} style={styles.gradeLinhaItem}>
+                    {/* NOME */}
+                    <View style={[styles.gradeColCell, { width: 120, justifyContent: 'flex-start' }]}>
+                      <Text style={styles.gradeNomeTxt} numberOfLines={1}>{p.nome}</Text>
+                    </View>
+
+                    {/* STATUS COM BADGE */}
+                    <TouchableOpacity
+                      disabled={!ehAdmin}
+                      style={[styles.gradeColCell, { width: 130 }]}
+                      onPress={() => {
+                        if (ehAdmin) setModalEditarStatus(p);
+                      }}
+                    >
+                      <View style={[styles.badgeGradeStatus, { backgroundColor: statusEstilo.bg, borderColor: statusEstilo.border }]}>
+                        <Text style={[styles.badgeGradeStatusTxt, { color: statusEstilo.text }]} numberOfLines={1}>
+                          {p.status}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* CÉLULAS DOS MESES (JAN A DEZ) */}
+                    {MESES.map((m) => {
+                      const val = pPag[m];
+                      const temValor = typeof val === 'number';
+                      const estaPago = temValor && val > 0;
+                      const estaAusente = temValor && val === 0;
+
+                      const valorEsperado = m === 'Janeiro' ? 60.0 : (Number(config.valorMensalidade) || 75.0);
+                      const deveParte = estaPago && val < valorEsperado;
+
+                      return (
+                        <TouchableOpacity
+                          key={m}
+                          disabled={!ehAdmin}
+                          style={[
+                            styles.gradeCelulaMes,
+                            estaPago && (deveParte ? styles.gradeCelulaPagaParcial : styles.gradeCelulaPaga),
+                            estaAusente && styles.gradeCelulaAusente,
+                          ]}
+                          onPress={() => {
+                            if (ehAdmin) {
+                              setModalEditarPagamento({
+                                player: p,
+                                mes: m,
+                                valorAtual: temValor ? String(val) : (m === 'Janeiro' ? '60' : String(config.valorMensalidade || 75)),
+                              });
+                            }
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.gradeCelulaTxt,
+                              estaPago && (deveParte ? styles.gradeCelulaTxtParcial : styles.gradeCelulaTxtPaga),
+                              estaAusente && styles.gradeCelulaTxtAusente,
+                            ]}
+                          >
+                            {estaPago ? (deveParte ? `R$ ${val} ⚠️` : `R$ ${val}`) : estaAusente ? 'R$ 0' : '-'}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+
+              {/* SEÇÃO / TOGGLE: HISTÓRICO DE EX-MENSALISTAS (VALORES MANTIDOS NO CAIXA) */}
+              {exMensalistasComHistorico.length > 0 && (
+                <View style={styles.secaoExMensalistasContainer}>
+                  <TouchableOpacity
+                    style={styles.btnToggleHistorico}
+                    onPress={() => setMostrarHistoricoExMensalistas(!mostrarHistoricoExMensalistas)}
+                  >
+                    <Text style={styles.btnToggleHistoricoTxt}>
+                      {mostrarHistoricoExMensalistas
+                        ? '▲ Ocultar Histórico de Ex-Mensalistas'
+                        : `👥 Ver Pagamentos Anteriores de Ex-Mensalistas (${exMensalistasComHistorico.length} jogadores • R$ ${totais.totalExMensalistas.toFixed(2)} mantidos no caixa) ▾`}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {mostrarHistoricoExMensalistas && (
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={styles.subtituloExMensalistas}>
+                        Estes jogadores hoje são Diaristas, mas os valores pagos quando eram mensalistas permanecem somados ao Caixa:
+                      </Text>
+                      {exMensalistasComHistorico.map((p) => {
+                        const statusEstilo = STATUS_CORES[p.status] || STATUS_CORES['Diarista'];
+                        const pPag = pagamentos[p.id] || {};
+
+                        return (
+                          <View key={p.id} style={[styles.gradeLinhaItem, { opacity: 0.88, backgroundColor: '#f8fafc' }]}>
+                            {/* NOME */}
+                            <View style={[styles.gradeColCell, { width: 120, justifyContent: 'flex-start' }]}>
+                              <Text style={styles.gradeNomeTxt} numberOfLines={1}>{p.nome}</Text>
+                            </View>
+
+                            {/* STATUS COM BADGE */}
+                            <TouchableOpacity
+                              style={[styles.gradeColCell, { width: 130 }]}
+                              onPress={() => setModalEditarStatus(p)}
+                            >
+                              <View style={[styles.badgeGradeStatus, { backgroundColor: statusEstilo.bg, borderColor: statusEstilo.border }]}>
+                                <Text style={[styles.badgeGradeStatusTxt, { color: statusEstilo.text }]} numberOfLines={1}>
+                                  {p.status}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+
+                            {/* CÉLULAS DOS MESES */}
+                            {MESES.map((m) => {
+                              const val = pPag[m];
+                              const temValor = typeof val === 'number';
+                              const estaPago = temValor && val > 0;
+                              const estaAusente = temValor && val === 0;
+
+                              return (
+                                <View
+                                  key={m}
+                                  style={[
+                                    styles.gradeCelulaMes,
+                                    estaPago && styles.gradeCelulaPaga,
+                                    estaAusente && styles.gradeCelulaAusente,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.gradeCelulaTxt,
+                                      estaPago && styles.gradeCelulaTxtPaga,
+                                      estaAusente && styles.gradeCelulaTxtAusente,
+                                    ]}
+                                  >
+                                    {estaPago ? `R$ ${val}` : estaAusente ? 'R$ 0' : '-'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 5. VISÃO 3: ENTRADAS & DIARISTAS */}
+      {visaoAtiva === 'entradas' && (
         <View>
           <View style={styles.secaoHeaderRow}>
             <View>
-              <Text style={styles.secaoTitulo}>Entradas Avulsas & Diaristas</Text>
-              <Text style={styles.secaoSub}>Total: R$ {totaisCalculados.totalEntradasAvulsas.toFixed(2)}</Text>
+              <Text style={styles.secaoTitulo}>Entradas & Diaristas</Text>
+              <Text style={styles.secaoSub}>
+                Total de Entradas Avulsas: R$ {totais.totalEntradasAvulsas.toFixed(2)}
+              </Text>
             </View>
-            <TouchableOpacity style={styles.btnAdicionar} onPress={() => abrirModalEntrada()}>
-              <Text style={styles.btnAdicionarTexto}>+ Nova Entrada</Text>
-            </TouchableOpacity>
+
+            {ehAdmin && (
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {/* BOTÃO RÁPIDO PARA DIARISTAS DO JOGO */}
+                <TouchableOpacity
+                  style={styles.btnDiaristasRapido}
+                  onPress={() => setModalDiaristasRapido(true)}
+                >
+                  <Text style={styles.btnDiaristasRapidoTxt}>⚡ + Diaristas da Rodada</Text>
+                </TouchableOpacity>
+
+                {/* NOVA ENTRADA AVULSA */}
+                <TouchableOpacity
+                  style={styles.btnAdicionar}
+                  onPress={() => {
+                    setItemEmEdicaoId(null);
+                    setFormDescricao('');
+                    setFormValor('');
+                    setFormCategoria('Diarista');
+                    setFormData(new Date().toLocaleDateString('pt-BR'));
+                    setModalNovaEntrada(true);
+                  }}
+                >
+                  <Text style={styles.btnAdicionarTexto}>+ Outra</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
+          {/* LISTA DE TODAS AS ENTRADAS */}
           {entradas.map((item) => (
             <View key={item.id} style={styles.itemTransacao}>
               <View style={styles.transacaoInfo}>
@@ -526,38 +884,68 @@ export default function FinanceiroTab({
 
               <View style={styles.transacaoValorRow}>
                 <Text style={styles.transacaoValorPositivo}>+ R$ {Number(item.valor).toFixed(2)}</Text>
-                <View style={styles.transacaoBotoes}>
-                  <TouchableOpacity onPress={() => abrirModalEntrada(item)} style={styles.btnIconMini}>
-                    <Text>✏️</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => excluirEntrada(item.id)} style={styles.btnIconMini}>
-                    <Text>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
+                {ehAdmin && (
+                  <View style={styles.transacaoBotoes}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setItemEmEdicaoId(item.id);
+                        setFormDescricao(item.descricao);
+                        setFormValor(String(item.valor));
+                        setFormCategoria(item.categoria || 'Diarista');
+                        setFormData(item.data || '');
+                        setModalNovaEntrada(true);
+                      }}
+                      style={styles.btnIconMini}
+                    >
+                      <Text>✏️</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        onUpdateEntradas(entradas.filter(e => e.id !== item.id));
+                      }}
+                      style={styles.btnIconMini}
+                    >
+                      <Text>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           ))}
         </View>
       )}
 
-      {/* SEÇÃO 3: SAÍDAS / GASTOS */}
-      {secaoAtiva === 'saidas' && (
+      {/* 6. VISÃO 4: SAÍDAS & GASTOS (QUADRA, CHOPP, CHURRASCO) */}
+      {visaoAtiva === 'saidas' && (
         <View>
           <View style={styles.secaoHeaderRow}>
             <View>
-              <Text style={styles.secaoTitulo}>Gastos & Despesas</Text>
-              <Text style={styles.secaoSub}>Total: R$ {totaisCalculados.totalSaidasGeral.toFixed(2)}</Text>
+              <Text style={styles.secaoTitulo}>Gastos & Saídas</Text>
+              <Text style={styles.secaoSub}>Total de Gastos: R$ {totais.totalSaidasGeral.toFixed(2)}</Text>
             </View>
-            <TouchableOpacity style={styles.btnAdicionarSaida} onPress={() => abrirModalSaida()}>
-              <Text style={styles.btnAdicionarTexto}>+ Nova Saída</Text>
-            </TouchableOpacity>
+            {ehAdmin && (
+              <TouchableOpacity
+                style={styles.btnAdicionarSaida}
+                onPress={() => {
+                  setItemEmEdicaoId(null);
+                  setFormDescricao('');
+                  setFormValor('');
+                  setFormCategoria('Quadra');
+                  setFormData(new Date().toLocaleDateString('pt-BR'));
+                  setModalNovaSaida(true);
+                }}
+              >
+                <Text style={styles.btnAdicionarTexto}>+ Nova Saída</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
+          {/* LISTA DE SAÍDAS */}
           {saidas.map((item) => (
             <View key={item.id} style={styles.itemTransacao}>
               <View style={styles.transacaoInfo}>
                 <View style={styles.transacaoBadgeSaida}>
-                  <Text style={styles.transacaoBadgeTxt}>{item.categoria || 'Despesa'}</Text>
+                  <Text style={styles.transacaoBadgeTxt}>{item.categoria || 'Quadra'}</Text>
                 </View>
                 <Text style={styles.transacaoDescricao}>{item.descricao}</Text>
                 {item.data ? <Text style={styles.transacaoData}>📅 {item.data}</Text> : null}
@@ -565,21 +953,38 @@ export default function FinanceiroTab({
 
               <View style={styles.transacaoValorRow}>
                 <Text style={styles.transacaoValorNegativo}>- R$ {Number(item.valor).toFixed(2)}</Text>
-                <View style={styles.transacaoBotoes}>
-                  <TouchableOpacity onPress={() => abrirModalSaida(item)} style={styles.btnIconMini}>
-                    <Text>✏️</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => excluirSaida(item.id)} style={styles.btnIconMini}>
-                    <Text>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
+                {ehAdmin && (
+                  <View style={styles.transacaoBotoes}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setItemEmEdicaoId(item.id);
+                        setFormDescricao(item.descricao);
+                        setFormValor(String(item.valor));
+                        setFormCategoria(item.categoria || 'Quadra');
+                        setFormData(item.data || '');
+                        setModalNovaSaida(true);
+                      }}
+                      style={styles.btnIconMini}
+                    >
+                      <Text>✏️</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        onUpdateSaidas(saidas.filter(s => s.id !== item.id));
+                      }}
+                      style={styles.btnIconMini}
+                    >
+                      <Text>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             </View>
           ))}
         </View>
       )}
 
-      {/* MODAL 1: EDITAR VALOR DO PAGAMENTO DE MENSALIDADE */}
+      {/* MODAL 1: EDITAR VALOR DO PAGAMENTO (EX: ALEX PAGOU 65 DEVENDO 10) */}
       <Modal visible={!!modalEditarPagamento} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -596,8 +1001,36 @@ export default function FinanceiroTab({
               onChangeText={(txt) =>
                 setModalEditarPagamento((prev) => ({ ...prev, valorAtual: txt }))
               }
-              placeholder="Ex: 75.00"
+              placeholder="Ex: 75.00 ou 65.00"
             />
+
+            {/* BOTÕES DE ATALHO RÁPIDO DENTRO DO MODAL */}
+            {(() => {
+              const valIntegral = modalEditarPagamento?.mes === 'Janeiro' ? 60 : (Number(config.valorMensalidade) || 75);
+              const valComDesconto10 = valIntegral - 10;
+              return (
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                  <TouchableOpacity
+                    style={styles.btnAtalhoValor}
+                    onPress={() => setModalEditarPagamento((prev) => ({ ...prev, valorAtual: String(valIntegral) }))}
+                  >
+                    <Text style={styles.btnAtalhoValorTxt}>R$ {valIntegral} (Integral)</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.btnAtalhoValor}
+                    onPress={() => setModalEditarPagamento((prev) => ({ ...prev, valorAtual: String(valComDesconto10) }))}
+                  >
+                    <Text style={styles.btnAtalhoValorTxt}>R$ {valComDesconto10} (-10 devendo)</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.btnAtalhoValor}
+                    onPress={() => setModalEditarPagamento((prev) => ({ ...prev, valorAtual: '0' }))}
+                  >
+                    <Text style={styles.btnAtalhoValorTxt}>R$ 0 (Ausente)</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
 
             <View style={styles.modalBotoesLinha}>
               <TouchableOpacity
@@ -611,7 +1044,7 @@ export default function FinanceiroTab({
                 style={styles.modalBtnSalvar}
                 onPress={() => {
                   const num = parseFloat((modalEditarPagamento?.valorAtual || '0').replace(',', '.'));
-                  salvarPagamentoPersonalizado(isNaN(num) ? 0 : num);
+                  salvarPagamentoModal(isNaN(num) ? 0 : num);
                 }}
               >
                 <Text style={styles.modalBtnSalvarTexto}>Confirmar</Text>
@@ -621,7 +1054,146 @@ export default function FinanceiroTab({
         </View>
       </Modal>
 
-      {/* MODAL 2: NOVA ENTRADA / EDITAR ENTRADA */}
+      {/* MODAL 2: ALTERAR STATUS DO JOGADOR (EX: VICTÃO SUBSTITUINDO RECHAN) */}
+      <Modal visible={!!modalEditarStatus} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitulo}>Alterar Status do Jogador</Text>
+            <Text style={styles.modalSub}>
+              {modalEditarStatus?.nome} • Status atual: {modalEditarStatus?.status}
+            </Text>
+
+            <View style={{ gap: 8, marginVertical: 12 }}>
+              {[
+                { status: 'Mensalista', desc: 'Paga a mensalidade integral todo mês' },
+                { status: 'Mensalista Temporário', desc: 'Substituindo temporariamente outro jogador lesionado' },
+                { status: 'Mensalista Ausente', desc: 'Ausente por lesão / dispensado temporariamente' },
+                { status: 'Diarista', desc: 'Paga por jogo/rodada que comparecer' },
+              ].map(item => {
+                const cor = STATUS_CORES[item.status] || STATUS_CORES['Mensalista'];
+                const selecionado = modalEditarStatus?.status === item.status;
+                return (
+                  <TouchableOpacity
+                    key={item.status}
+                    style={[
+                      styles.opcaoStatusItem,
+                      { backgroundColor: cor.bg, borderColor: selecionado ? cor.text : cor.border },
+                      selecionado && { borderWidth: 2 },
+                    ]}
+                    onPress={() => salvarNovoStatusJogador(item.status)}
+                  >
+                    <Text style={[styles.opcaoStatusTitulo, { color: cor.text }]}>
+                      {item.status} {selecionado ? '✓' : ''}
+                    </Text>
+                    <Text style={[styles.opcaoStatusDesc, { color: cor.text }]}>{item.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalBtnCancelar}
+              onPress={() => setModalEditarStatus(null)}
+            >
+              <Text style={styles.modalBtnCancelarTexto}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 3: AJUSTAR DINHEIRO EM MÃOS */}
+      <Modal visible={modalDinheiro} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitulo}>💵 Dinheiro em Mãos</Text>
+            <Text style={styles.modalSub}>
+              Esse valor já faz parte do total em caixa da pelada. Ele só fica destacado para você saber exatamente quanto dinheiro vivo está com você.
+            </Text>
+
+            <Text style={styles.labelInput}>Valor em Dinheiro (R$):</Text>
+            <TextInput
+              style={styles.inputModal}
+              keyboardType="numeric"
+              value={tempDinheiro}
+              onChangeText={setTempDinheiro}
+              placeholder="0.00"
+            />
+
+            <View style={styles.modalBotoesLinha}>
+              <TouchableOpacity
+                style={styles.modalBtnCancelar}
+                onPress={() => setModalDinheiro(false)}
+              >
+                <Text style={styles.modalBtnCancelarTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnSalvar} onPress={salvarDinheiroEmMaos}>
+                <Text style={styles.modalBtnSalvarTexto}>Salvar Valor</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 4: LANÇAMENTO RÁPIDO DE DIARISTAS DA RODADA */}
+      <Modal visible={modalDiaristasRapido} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitulo}>⚡ Lançar Diaristas do Jogo</Text>
+            <Text style={styles.modalSub}>
+              Cada diarista paga R$ {Number(config.valorDiarista || 20).toFixed(2)} por pelada.
+            </Text>
+
+            <Text style={styles.labelInput}>Quantos diaristas jogaram?</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              {['1', '2', '3', '4'].map(n => (
+                <TouchableOpacity
+                  key={n}
+                  style={[
+                    styles.btnQtdDiarista,
+                    diaristasQtd === n && styles.btnQtdDiaristaAtivo,
+                  ]}
+                  onPress={() => setDiaristasQtd(n)}
+                >
+                  <Text style={[styles.btnQtdDiaristaTxt, diaristasQtd === n && styles.btnQtdDiaristaTxtAtivo]}>
+                    {n} ({n}x R$ 20 = R$ {parseInt(n, 10) * 20})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.labelInput}>Data da Pelada:</Text>
+            <TextInput
+              style={styles.inputModal}
+              value={diaristasData}
+              onChangeText={setDiaristasData}
+              placeholder="Ex: 27/10/2026"
+            />
+
+            <View style={styles.resumoDiaristasBox}>
+              <Text style={styles.resumoDiaristasTxt}>
+                Total da Entrada:{' '}
+                <Text style={{ fontWeight: '900', color: '#059669' }}>
+                  + R$ {(parseInt(diaristasQtd, 10) * (Number(config.valorDiarista) || 20)).toFixed(2)}
+                </Text>
+              </Text>
+            </View>
+
+            <View style={styles.modalBotoesLinha}>
+              <TouchableOpacity
+                style={styles.modalBtnCancelar}
+                onPress={() => setModalDiaristasRapido(false)}
+              >
+                <Text style={styles.modalBtnCancelarTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnSalvar} onPress={salvarDiaristasRapido}>
+                <Text style={styles.modalBtnSalvarTexto}>Lançar no Caixa</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL 5: NOVA ENTRADA AVULSA */}
       <Modal visible={modalNovaEntrada} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -634,7 +1206,7 @@ export default function FinanceiroTab({
               style={styles.inputModal}
               value={formDescricao}
               onChangeText={setFormDescricao}
-              placeholder="Ex: Diaristas 24/10, Patrocínio, etc."
+              placeholder="Ex: Patrocínio camisas, Diaristas 27/10, etc."
             />
 
             <Text style={styles.labelInput}>Valor (R$):</Text>
@@ -651,10 +1223,10 @@ export default function FinanceiroTab({
               style={styles.inputModal}
               value={formData}
               onChangeText={setFormData}
-              placeholder="Ex: 24/10/2026"
+              placeholder="Ex: 27/10/2026"
             />
 
-            <Text style={styles.labelInput}>Tipo / Categoria:</Text>
+            <Text style={styles.labelInput}>Categoria:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catChipsContainer}>
               {categoriasEntrada.map((cat) => (
                 <TouchableOpacity
@@ -684,7 +1256,7 @@ export default function FinanceiroTab({
         </View>
       </Modal>
 
-      {/* MODAL 3: NOVA SAÍDA / EDITAR SAÍDA */}
+      {/* MODAL 6: NOVA SAÍDA / GASTO */}
       <Modal visible={modalNovaSaida} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -697,7 +1269,7 @@ export default function FinanceiroTab({
               style={styles.inputModal}
               value={formDescricao}
               onChangeText={setFormDescricao}
-              placeholder="Ex: Quadra Novembro, 10L Chopp, etc."
+              placeholder="Ex: Quadra Outubro, Chopp, Bola, etc."
             />
 
             <Text style={styles.labelInput}>Valor (R$):</Text>
@@ -714,10 +1286,10 @@ export default function FinanceiroTab({
               style={styles.inputModal}
               value={formData}
               onChangeText={setFormData}
-              placeholder="Ex: 24/10/2026"
+              placeholder="Ex: 27/10/2026"
             />
 
-            <Text style={styles.labelInput}>Tipo / Categoria:</Text>
+            <Text style={styles.labelInput}>Categoria:</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catChipsContainer}>
               {categoriasSaida.map((cat) => (
                 <TouchableOpacity
@@ -747,14 +1319,14 @@ export default function FinanceiroTab({
         </View>
       </Modal>
 
-      {/* MODAL 4: CONFIGURAÇÕES GERAIS EDITÁVEIS */}
+      {/* MODAL 7: CONFIGURAÇÕES EDITÁVEIS */}
       <Modal visible={modalConfig} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitulo}>⚙️ Configurações Financeiras</Text>
+              <Text style={styles.modalTitulo}>⚙️ Configurações do Caixa</Text>
               <Text style={styles.modalSub}>
-                Ajuste os valores padrão, dia do pagamento e tipos de lançamentos.
+                Ajuste os valores padrão da pelada de forma flexível.
               </Text>
 
               <Text style={styles.labelInput}>Valor Padrão da Mensalidade (R$):</Text>
@@ -766,6 +1338,15 @@ export default function FinanceiroTab({
                 placeholder="75.00"
               />
 
+              <Text style={styles.labelInput}>Valor Padrão do Diarista por Jogo (R$):</Text>
+              <TextInput
+                style={styles.inputModal}
+                keyboardType="numeric"
+                value={String(config.valorDiarista || 20)}
+                onChangeText={(t) => onUpdateConfig({ ...config, valorDiarista: parseFloat(t) || 20 })}
+                placeholder="20.00"
+              />
+
               <Text style={styles.labelInput}>Dia de Vencimento do Pagamento:</Text>
               <TextInput
                 style={styles.inputModal}
@@ -775,55 +1356,22 @@ export default function FinanceiroTab({
                 placeholder="10"
               />
 
-              <View style={styles.divisorLinha} />
-
-              <Text style={styles.labelInput}>Tipos de Entrada de Dinheiro:</Text>
-              <View style={styles.chipsWrap}>
-                {categoriasEntrada.map((c) => (
-                  <View key={c} style={styles.tagRemovivel}>
-                    <Text style={styles.tagRemovivelTxt}>{c}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.addCatRow}>
-                <TextInput
-                  style={[styles.inputModal, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Novo tipo de entrada..."
-                  value={novaCatEntrada}
-                  onChangeText={setNovaCatEntrada}
-                />
-                <TouchableOpacity style={styles.btnAddCat} onPress={adicionarCatEntrada}>
-                  <Text style={styles.btnAddCatTxt}>+ Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.divisorLinha} />
-
-              <Text style={styles.labelInput}>Tipos de Saída de Dinheiro:</Text>
-              <View style={styles.chipsWrap}>
-                {categoriasSaida.map((c) => (
-                  <View key={c} style={styles.tagRemovivelSaida}>
-                    <Text style={styles.tagRemovivelTxt}>{c}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.addCatRow}>
-                <TextInput
-                  style={[styles.inputModal, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Novo tipo de saída..."
-                  value={novaCatSaida}
-                  onChangeText={setNovaCatSaida}
-                />
-                <TouchableOpacity style={styles.btnAddCatSaida} onPress={adicionarCatSaida}>
-                  <Text style={styles.btnAddCatTxt}>+ Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[styles.modalBotoesLinha, { marginTop: 24 }]}>
+              <View style={styles.modalBotoesLinha}>
                 <TouchableOpacity style={styles.modalBtnCancelar} onPress={() => setModalConfig(false)}>
                   <Text style={styles.modalBtnCancelarTexto}>Fechar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalBtnSalvar} onPress={salvarConfiguracoes}>
+                <TouchableOpacity
+                  style={styles.modalBtnSalvar}
+                  onPress={() => {
+                    onUpdateConfig({
+                      ...config,
+                      valorMensalidade: parseFloat(tempValorMensalidade) || 75.0,
+                      diaVencimentoMensalidade: parseInt(tempDiaVencimento, 10) || 10,
+                    });
+                    setModalConfig(false);
+                    alertSimples('Salvo', 'Configurações atualizadas!');
+                  }}
+                >
                   <Text style={styles.modalBtnSalvarTexto}>Salvar Tudo</Text>
                 </TouchableOpacity>
               </View>
@@ -831,6 +1379,7 @@ export default function FinanceiroTab({
           </ScrollView>
         </View>
       </Modal>
+
     </ScrollView>
   );
 }
@@ -846,10 +1395,10 @@ const styles = StyleSheet.create({
   cardResumoGeral: {
     backgroundColor: '#064e3b',
     borderRadius: 20,
-    padding: 20,
+    padding: 18,
     marginBottom: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
     elevation: 5,
@@ -860,11 +1409,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   resumoTitulo: {
     color: '#a7f3d0',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
   },
@@ -883,40 +1432,82 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: -0.5,
-    marginBottom: 16,
+    marginBottom: 14,
+  },
+  linhaDivisaoDinheiro: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  boxSubSaldo: {
+    flex: 1,
+  },
+  boxSubSaldoDinheiro: {
+    flex: 1.2,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    padding: 6,
+    borderRadius: 10,
+  },
+  labelSubSaldo: {
+    color: '#cbd5e1',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  valorSubSaldoBanco: {
+    color: '#38bdf8',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  valorSubSaldoDinheiro: {
+    color: '#facc15',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  linkEditarDinheiro: {
+    fontSize: 12,
+  },
+  divisorVertical: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 10,
   },
   resumoMetricasLinha: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   metricaBox: {
     flex: 1,
   },
   metricaLabel: {
     color: '#94a3b8',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     marginBottom: 2,
   },
   metricaValorVerde: {
     color: '#34d399',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   metricaValorVermelho: {
     color: '#f87171',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   metricaDivisor: {
     width: 1,
-    height: 32,
+    height: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   subAbasContainer: {
     flexDirection: 'row',
@@ -927,7 +1518,7 @@ const styles = StyleSheet.create({
   },
   subAbaBotao: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
     borderRadius: 10,
   },
@@ -936,7 +1527,7 @@ const styles = StyleSheet.create({
   },
   subAbaTexto: {
     color: '#94a3b8',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   subAbaTextoAtiva: {
@@ -973,7 +1564,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     elevation: 2,
@@ -982,7 +1573,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   cardMesTitulo: {
     fontSize: 16,
@@ -1031,18 +1622,23 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   progressoTxtVerde: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#059669',
   },
+  progressoTxtCinza: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
   progressoTxtVermelho: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#dc2626',
   },
   filtrosLinha: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   filtroBtn: {
     flex: 1,
@@ -1058,7 +1654,7 @@ const styles = StyleSheet.create({
     borderColor: '#0f172a',
   },
   filtroBtnTxt: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#64748b',
   },
@@ -1085,9 +1681,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 8,
   },
   itemAvatar: {
-    fontSize: 24,
+    fontSize: 22,
     marginRight: 10,
   },
   itemNome: {
@@ -1095,42 +1692,250 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1e293b',
   },
-  itemStatus: {
+  badgeStatusMini: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  badgeStatusMiniTxt: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  itemPagamentoVerde: {
+    fontSize: 12,
+    color: '#15803d',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  itemPagamentoAusente: {
     fontSize: 12,
     color: '#64748b',
-    marginTop: 1,
+    fontWeight: '600',
+    marginTop: 2,
   },
-  itemAcoes: {
+  itemPagamentoPendente: {
+    fontSize: 12,
+    color: '#dc2626',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  itemAcoesLinha: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  btnStatusPagamento: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
+  btnAcaoPagar: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  btnPago: {
-    backgroundColor: '#10b981',
-  },
-  btnPendente: {
-    backgroundColor: '#ef4444',
-  },
-  btnStatusTexto: {
-    color: '#ffffff',
+  btnAcaoPagarTxt: {
+    color: '#15803d',
     fontSize: 11,
     fontWeight: '800',
   },
-  btnEditarValor: {
+  btnAcaoAusente: {
     backgroundColor: '#f1f5f9',
-    width: 32,
-    height: 32,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 8,
+  },
+  btnAcaoAusenteTxt: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  btnAcaoLimpar: {
+    backgroundColor: '#fee2e2',
+    width: 26,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
+  btnAcaoLimparTxt: {
+    color: '#b91c1c',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  btnAcaoSelecionada: {
+    backgroundColor: '#15803d',
+    borderColor: '#15803d',
+  },
+  btnEditarValor: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   btnEditarValorTexto: {
-    fontSize: 14,
+    fontSize: 12,
+  },
+  cardGradeAnual: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  gradeHeaderRow: {
+    marginBottom: 12,
+  },
+  cardGradeTitulo: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  cardGradeSub: {
+    fontSize: 11,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  gradeScroll: {
+    marginTop: 4,
+  },
+  gradeLinhaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#cbd5e1',
+    paddingBottom: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 6,
+  },
+  gradeColHeader: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+    paddingHorizontal: 4,
+  },
+  gradeLinhaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingVertical: 6,
+  },
+  gradeColCell: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  gradeNomeTxt: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  badgeGradeStatus: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    maxWidth: 120,
+  },
+  badgeGradeStatusTxt: {
+    fontSize: 9,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  gradeCelulaMes: {
+    width: 68,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 6,
+    marginHorizontal: 1,
+    backgroundColor: '#ffffff',
+  },
+  gradeCelulaPaga: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  gradeCelulaAusente: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+  },
+  gradeCelulaTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  gradeCelulaTxtPaga: {
+    color: '#15803d',
+    fontWeight: '900',
+  },
+  btnToggleHistorico: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignSelf: 'flex-start',
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  btnToggleHistoricoTxt: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  subtituloExMensalistas: {
+    fontSize: 12,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  secaoExMensalistasContainer: {
+    marginTop: 10,
+    paddingTop: 8,
+  },
+  bannerAlertaDivida: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fcd34d',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  bannerAlertaDividaTitulo: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#b45309',
+    marginBottom: 4,
+  },
+  bannerAlertaDividaTxt: {
+    fontSize: 12,
+    color: '#78350f',
+    lineHeight: 18,
+  },
+  gradeCelulaPagaParcial: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  gradeCelulaTxtParcial: {
+    color: '#b45309',
+    fontWeight: '800',
+  },
+  gradeCelulaTxtAusente: {
+    color: '#64748b',
   },
   secaoHeaderRow: {
     flexDirection: 'row',
@@ -1144,12 +1949,24 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   secaoSub: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#64748b',
+    marginTop: 1,
+  },
+  btnDiaristasRapido: {
+    backgroundColor: '#0284c7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  btnDiaristasRapidoTxt: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   btnAdicionar: {
     backgroundColor: '#059669',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
   },
@@ -1161,7 +1978,7 @@ const styles = StyleSheet.create({
   },
   btnAdicionarTexto: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
   itemTransacao: {
@@ -1250,10 +2067,6 @@ const styles = StyleSheet.create({
     padding: 22,
     width: '100%',
     maxWidth: 420,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 8,
   },
   modalTitulo: {
     fontSize: 18,
@@ -1265,13 +2078,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginBottom: 16,
+    lineHeight: 18,
   },
   labelInput: {
     fontSize: 12,
     fontWeight: '700',
     color: '#334155',
     marginBottom: 6,
-    marginTop: 8,
+    marginTop: 6,
   },
   inputModal: {
     backgroundColor: '#f8fafc',
@@ -1282,7 +2096,70 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 14,
     color: '#0f172a',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  btnAtalhoValor: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  btnAtalhoValorTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  opcaoStatusItem: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  opcaoStatusTitulo: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  opcaoStatusDesc: {
+    fontSize: 11,
+    opacity: 0.85,
+  },
+  btnQtdDiarista: {
+    flex: 1,
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  btnQtdDiaristaAtivo: {
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
+  },
+  btnQtdDiaristaTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
+  },
+  btnQtdDiaristaTxtAtivo: {
+    color: '#ffffff',
+  },
+  resumoDiaristasBox: {
+    backgroundColor: '#ecfdf5',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  resumoDiaristasTxt: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#065f46',
   },
   catChipsContainer: {
     flexDirection: 'row',
@@ -1350,59 +2227,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 13,
   },
-  divisorLinha: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 16,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  tagRemovivel: {
-    backgroundColor: '#ecfdf5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-  },
-  tagRemovivelSaida: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-  },
-  tagRemovivelTxt: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1e293b',
-  },
-  addCatRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  btnAddCat: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 10,
-  },
-  btnAddCatSaida: {
-    backgroundColor: '#dc2626',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 10,
-  },
-  btnAddCatTxt: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 12,
-  },
 });
-

@@ -10,24 +10,12 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { sortearTimesEquilibrados } from '../utils/teamBalancer';
+import { normalizarLogin } from '../services/authService';
 
 export default function PlayersTab({
   players,
   onUpdatePlayers,
-  onTimesGerados, // envia os times gerados para a aba de partidas
 }) {
-  const [subSecao, setSubSecao] = useState('sorteio'); // 'sorteio' | 'jogadores'
-
-  // Jogadores selecionados para o sorteio do dia (IDs)
-  // Pré-seleciona os primeiros 15 por padrão
-  const [selecionadosIds, setSelecionadosIds] = useState(() => {
-    return players.slice(0, 15).map(p => p.id);
-  });
-
-  // Times sorteados
-  const [timesSorteados, setTimesSorteados] = useState(null);
-
   // Filtro de busca na lista de jogadores
   const [buscaJogador, setBuscaJogador] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos'); // 'todos' | 'mensalista' | 'diarista' | 'goleiro'
@@ -40,6 +28,7 @@ export default function PlayersTab({
   const [formNome, setFormNome] = useState('');
   const [formStatus, setFormStatus] = useState('Mensalista');
   const [formPosicao, setFormPosicao] = useState('Linha');
+  const [formEhAdmin, setFormEhAdmin] = useState(false);
   const [formVelocidade, setFormVelocidade] = useState(3);
   const [formChute, setFormChute] = useState(3);
   const [formMarcacao, setFormMarcacao] = useState(3);
@@ -54,74 +43,14 @@ export default function PlayersTab({
     }
   };
 
-  // Toggle seleção de presença
-  const toggleSelecao = (id) => {
-    setSelecionadosIds(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(x => x !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-
-  // Auto-selecionar os 15 primeiros
-  const autoSelecionar15 = () => {
-    setSelecionadosIds(players.slice(0, 15).map(p => p.id));
-  };
-
-  // Limpar seleção
-  const limparSelecao = () => {
-    setSelecionadosIds([]);
-    setTimesSorteados(null);
-  };
-
-  // Executar Sorteio Equilibrado
-  const realizarSorteio = () => {
-    const selecionados = players.filter(p => selecionadosIds.includes(p.id));
-
-    if (selecionados.length < 9) {
-      alertSimples('Jogadores Insuficientes', 'Selecione pelo menos 9 jogadores para dividir os 3 times.');
-      return;
-    }
-
-    const resultadoTimes = sortearTimesEquilibrados(selecionados, 3, 5);
-    setTimesSorteados(resultadoTimes);
-
-    if (onTimesGerados) {
-      onTimesGerados(resultadoTimes);
-    }
-  };
-
-  // Copiar escalação para o WhatsApp
-  const copiarTextoWhatsApp = () => {
-    if (!timesSorteados) return;
-
-    let txt = `⚽ *PELADA DE SEGUNDA - TIMES SORTEADOS*\n\n`;
-    timesSorteados.forEach(t => {
-      txt += `*${t.nome.toUpperCase()}* (Poder: ${t.poderTotal} pts):\n`;
-      t.jogadores.forEach((j, i) => {
-        txt += ` ${i + 1}. ${j.nome} (${j.posicao === 'Goleiro' ? 'GK' : 'Linha'} - ovr ${j.overall})\n`;
-      });
-      txt += `\n`;
-    });
-    txt += `⏱️ Partidas de 7 min • Regra do Empate com Vantagem para o Desafiante!\n`;
-
-    if (Platform.OS === 'web' && navigator?.clipboard) {
-      navigator.clipboard.writeText(txt);
-      alertSimples('Copiado!', 'Escalação copiada para a área de transferência! Cole no grupo do WhatsApp.');
-    } else {
-      alertSimples('Escalação dos Times', txt);
-    }
-  };
-
-  // Abrir modal de criação ou edição
+  // Abrir modal de criação/edição
   const abrirModalJogador = (jogador = null) => {
     if (jogador) {
       setJogadorEmEdicao(jogador);
       setFormNome(jogador.nome);
       setFormStatus(jogador.status || 'Mensalista');
       setFormPosicao(jogador.posicao || 'Linha');
+      setFormEhAdmin(normalizarLogin(jogador.nome) === 'douglas' || Boolean(jogador.ehAdmin));
       setFormVelocidade(jogador.velocidade || 3);
       setFormChute(jogador.chute || 3);
       setFormMarcacao(jogador.marcacao || 3);
@@ -132,6 +61,7 @@ export default function PlayersTab({
       setFormNome('');
       setFormStatus('Mensalista');
       setFormPosicao('Linha');
+      setFormEhAdmin(false);
       setFormVelocidade(3);
       setFormChute(3);
       setFormMarcacao(3);
@@ -141,6 +71,69 @@ export default function PlayersTab({
     setModalJogador(true);
   };
 
+  // Alternar permissão de Administrador de um jogador
+  const alternarAdminJogador = (jogadorId) => {
+    const jogadorAlvo = players.find((p) => p.id === jogadorId);
+    if (!jogadorAlvo) return;
+
+    if (normalizarLogin(jogadorAlvo.nome) === 'douglas') {
+      alertSimples(
+        'Ação Não Permitida',
+        'Douglas é o Administrador Principal e não pode ter seu papel alterado.'
+      );
+      return;
+    }
+
+    const estaAdmin = Boolean(jogadorAlvo.ehAdmin);
+    const novoStatusAdmin = !estaAdmin;
+
+    const executarAlternancia = () => {
+      const novaLista = players.map((p) => {
+        if (p.id === jogadorId) {
+          return {
+            ...p,
+            ehAdmin: novoStatusAdmin,
+            papel: novoStatusAdmin ? 'admin' : 'jogador',
+          };
+        }
+        return p;
+      });
+
+      onUpdatePlayers(novaLista);
+
+      alertSimples(
+        novoStatusAdmin ? '👑 Promovido a Administrador!' : '⚽ Rebaixado a Usuário Comum',
+        novoStatusAdmin
+          ? `${jogadorAlvo.nome} agora é ADMINISTRADOR! Ele terá permissão para ver esta aba de jogadores, gerenciar partidas, caixa e presenças.`
+          : `${jogadorAlvo.nome} voltou a ser USUÁRIO COMUM. A aba de jogadores e os botões de edição foram bloqueados para ele.`
+      );
+    };
+
+    const confirmMsg = estaAdmin
+      ? `Deseja remover os privilégios de administrador de "${jogadorAlvo.nome}"?\n\nEle voltará a ser um usuário comum.`
+      : `Deseja promover "${jogadorAlvo.nome}" a ADMINISTRADOR?\n\nEle terá controle total sobre finanças, partidas, presenças e banco de jogadores.`;
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmMsg)) {
+        executarAlternancia();
+      }
+    } else {
+      Alert.alert(
+        estaAdmin ? 'Remover Administrador?' : 'Promover a Administrador?',
+        confirmMsg,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: estaAdmin ? 'Remover Admin' : 'Sim, Promover',
+            style: estaAdmin ? 'destructive' : 'default',
+            onPress: executarAlternancia,
+          },
+        ]
+      );
+    }
+  };
+
+  // Salvar jogador
   const salvarJogador = () => {
     if (!formNome.trim()) {
       alertSimples('Nome Obrigatório', 'Informe o nome do jogador.');
@@ -149,32 +142,40 @@ export default function PlayersTab({
 
     const overall = formVelocidade + formChute + formMarcacao + formPasse + formHabilidade;
     const avatar = formPosicao === 'Goleiro' ? '🧤' : formStatus.includes('Mensalista') ? '⭐' : '🏃';
+    const ehAdminFinal = normalizarLogin(formNome) === 'douglas' ? true : formEhAdmin;
 
     let novaLista = [...players];
+
     if (jogadorEmEdicao) {
-      novaLista = novaLista.map(p =>
-        p.id === jogadorEmEdicao.id
-          ? {
-              ...p,
-              nome: formNome,
-              status: formStatus,
-              posicao: formPosicao,
-              avatar,
-              velocidade: formVelocidade,
-              chute: formChute,
-              marcacao: formMarcacao,
-              passe: formPasse,
-              habilidade: formHabilidade,
-              overall,
-            }
-          : p
-      );
+      novaLista = novaLista.map(p => {
+        if (p.id === jogadorEmEdicao.id) {
+          return {
+            ...p,
+            nome: formNome,
+            status: formStatus,
+            posicao: formPosicao,
+            ehAdmin: ehAdminFinal,
+            papel: ehAdminFinal ? 'admin' : 'jogador',
+            avatar,
+            velocidade: formVelocidade,
+            chute: formChute,
+            marcacao: formMarcacao,
+            passe: formPasse,
+            habilidade: formHabilidade,
+            overall,
+          };
+        }
+        return p;
+      });
     } else {
+      const novoId = `j_${Date.now()}`;
       novaLista.push({
-        id: `p_${Date.now()}`,
+        id: novoId,
         nome: formNome,
         status: formStatus,
         posicao: formPosicao,
+        ehAdmin: ehAdminFinal,
+        papel: ehAdminFinal ? 'admin' : 'jogador',
         avatar,
         velocidade: formVelocidade,
         chute: formChute,
@@ -189,12 +190,57 @@ export default function PlayersTab({
     setModalJogador(false);
   };
 
-  const excluirJogador = (id) => {
-    const nova = players.filter(p => p.id !== id);
-    onUpdatePlayers(nova);
+  // Alternar rapidamente entre Linha e Goleiro
+  const alternarPosicaoJogador = (jogadorId) => {
+    const novaLista = players.map((p) => {
+      if (p.id === jogadorId) {
+        const novaPos = p.posicao === 'Goleiro' ? 'Linha' : 'Goleiro';
+        const novoAvatar = novaPos === 'Goleiro' ? '🧤' : (p.status.includes('Mensalista') ? '⭐' : '🏃');
+        return {
+          ...p,
+          posicao: novaPos,
+          avatar: novoAvatar,
+        };
+      }
+      return p;
+    });
+
+    onUpdatePlayers(novaLista);
+
+    const jAtual = players.find((x) => x.id === jogadorId);
+    const virouGoleiro = jAtual && jAtual.posicao !== 'Goleiro';
+
+    alertSimples(
+      'Posição Alterada! 🔄',
+      virouGoleiro
+        ? `${jAtual.nome} agora é GOLEIRO! Pontuará com a fórmula de goleiros (2 vit, 0.5 emp, 1.0 gol/assist).`
+        : `${jAtual.nome} voltou a ser JOGADOR DE LINHA (cálculo normal de 3 vit, 1.0 emp, 0.5 gol/assist).`
+    );
   };
 
-  // Jogadores filtrados para exibição
+  // Excluir jogador
+  const excluirJogador = (id) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Tem certeza que deseja excluir este jogador?')) {
+        const novaLista = players.filter(p => p.id !== id);
+        onUpdatePlayers(novaLista);
+      }
+    } else {
+      Alert.alert('Excluir Jogador', 'Tem certeza que deseja excluir?', [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            const novaLista = players.filter(p => p.id !== id);
+            onUpdatePlayers(novaLista);
+          },
+        },
+      ]);
+    }
+  };
+
+  // Filtragem da lista
   const jogadoresFiltrados = useMemo(() => {
     return players.filter(p => {
       const matchNome = p.nome.toLowerCase().includes(buscaJogador.toLowerCase());
@@ -207,295 +253,163 @@ export default function PlayersTab({
     });
   }, [players, buscaJogador, filtroTipo]);
 
-  // Diferença de poder entre os times sorteados
-  const diferencaPoder = useMemo(() => {
-    if (!timesSorteados || timesSorteados.length < 2) return 0;
-    const poderes = timesSorteados.map(t => t.poderTotal);
-    return Math.round((Math.max(...poderes) - Math.min(...poderes)) * 10) / 10;
-  }, [timesSorteados]);
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* SELETOR DE SUB-SEÇÃO */}
-      <View style={styles.subAbasContainer}>
-        <TouchableOpacity
-          style={[styles.subAbaBotao, subSecao === 'sorteio' && styles.subAbaAtiva]}
-          onPress={() => setSubSecao('sorteio')}
-        >
-          <Text style={[styles.subAbaTexto, subSecao === 'sorteio' && styles.subAbaTextoAtiva]}>
-            ⚡ Divisão de 3 Times
+      {/* CABEÇALHO */}
+      <View style={styles.headerLista}>
+        <View>
+          <Text style={styles.tituloSecao}>👥 Banco de Jogadores</Text>
+          <Text style={styles.subtituloSecao}>
+            {players.length} atletas cadastrados • Atributos individuais e overall (6 a 25)
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.subAbaBotao, subSecao === 'jogadores' && styles.subAbaAtiva]}
-          onPress={() => setSubSecao('jogadores')}
-        >
-          <Text style={[styles.subAbaTexto, subSecao === 'jogadores' && styles.subAbaTextoAtiva]}>
-            ⭐ Habilidades & Jogadores ({players.length})
-          </Text>
+        <TouchableOpacity style={styles.btnNovoJogador} onPress={() => abrirModalJogador()}>
+          <Text style={styles.btnNovoJogadorTexto}>+ Novo Jogador</Text>
         </TouchableOpacity>
       </View>
 
-      {/* SEÇÃO 1: DIVISÃO EQUILIBRADA DE TIMES */}
-      {subSecao === 'sorteio' && (
-        <View>
-          {/* PAINEL DE SELEÇÃO DOS 15 JOGADORES */}
-          <View style={styles.cardSorteioConfig}>
-            <View style={styles.cardHeaderLinha}>
-              <View>
-                <Text style={styles.cardTitulo}>Lista de Presença do Dia</Text>
-                <Text style={styles.cardSub}>
-                  Pelada com 3 times de 5 jogadores (15 atletas no total).
-                </Text>
-              </View>
+      {/* BARRA DE PESQUISA */}
+      <View style={styles.buscaLinha}>
+        <TextInput
+          style={styles.inputBusca}
+          placeholder="Buscar jogador por nome..."
+          placeholderTextColor="#64748b"
+          value={buscaJogador}
+          onChangeText={setBuscaJogador}
+        />
+      </View>
 
-              <View
-                style={[
-                  styles.badgeContador,
-                  selecionadosIds.length === 15 ? styles.badge15Ideal : styles.badgeNormal,
-                ]}
-              >
-                <Text style={styles.badgeContadorTexto}>
-                  {selecionadosIds.length} / 15
-                </Text>
-              </View>
-            </View>
+      {/* FILTROS DE TIPO */}
+      <View style={styles.filtrosTipoRow}>
+        {[
+          { key: 'todos', label: `Todos (${players.length})` },
+          { key: 'mensalista', label: 'Mensalistas' },
+          { key: 'diarista', label: 'Diaristas' },
+          { key: 'goleiro', label: 'Goleiros' },
+        ].map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filtroTipoBtn, filtroTipo === f.key && styles.filtroTipoBtnAtivo]}
+            onPress={() => setFiltroTipo(f.key)}
+          >
+            <Text style={[styles.filtroTipoTxt, filtroTipo === f.key && styles.filtroTipoTxtAtivo]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-            {/* Ações rápidas de seleção */}
-            <View style={styles.acoesRapidasLinha}>
-              <TouchableOpacity onPress={autoSelecionar15} style={styles.btnAcaoMini}>
-                <Text style={styles.btnAcaoMiniTexto}>⚡ Selecionar 15</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={limparSelecao} style={styles.btnAcaoMini}>
-                <Text style={styles.btnAcaoMiniTexto}>🧹 Limpar</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* GRADE DE SELEÇÃO DE JOGADORES */}
-            <Text style={styles.labelGrade}>Toque para marcar quem vai jogar hoje:</Text>
-            <View style={styles.gradePresenca}>
-              {players.map((p) => {
-                const isSelected = selecionadosIds.includes(p.id);
-                return (
-                  <TouchableOpacity
-                    key={p.id}
-                    onPress={() => toggleSelecao(p.id)}
-                    style={[styles.chipJogadorPresenca, isSelected && styles.chipJogadorSelecionado]}
-                  >
-                    <Text style={styles.chipAvatar}>{p.avatar}</Text>
-                    <Text style={[styles.chipNome, isSelected && styles.chipNomeSelecionado]}>
-                      {p.nome.split(' ')[0]}
-                    </Text>
-                    <Text style={[styles.chipOverall, isSelected && styles.chipOverallSelecionado]}>
-                      {p.overall}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* BOTÃO PRINCIPAL DE SORTEIO */}
-            <TouchableOpacity
-              onPress={realizarSorteio}
-              style={[
-                styles.btnSortearPrincipal,
-                selecionadosIds.length === 15 && styles.btnSortearDestaque,
-              ]}
-            >
-              <Text style={styles.btnSortearTexto}>
-                ⚡ SORTEAR 3 TIMES COM PODER EQUILIBRADO
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* EXIBIÇÃO DOS TIMES SORTEADOS */}
-          {timesSorteados && (
-            <View style={styles.containerTimesSorteados}>
-              <View style={styles.resultadoHeader}>
+      {/* LISTA DE JOGADORES COM HABILIDADES */}
+      <View style={styles.jogadoresLista}>
+        {jogadoresFiltrados.map((p) => (
+          <View key={p.id} style={styles.cardJogadorHabilidade}>
+            <View style={styles.jogadorCardTopo}>
+              <View style={styles.jogadorIdentidade}>
+                <Text style={styles.jogadorAvatarGrande}>{p.avatar}</Text>
                 <View>
-                  <Text style={styles.resultadoTitulo}>🏆 Times Formados</Text>
-                  <Text style={styles.resultadoSub}>
-                    Diferença máxima entre times: apenas{' '}
-                    <Text style={{ fontWeight: 'bold', color: '#10b981' }}>{diferencaPoder} pts</Text>! ⚖️
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <Text style={styles.jogadorNomeGrande}>{p.nome}</Text>
+                    {normalizarLogin(p.nome) === 'douglas' || p.ehAdmin ? (
+                      <View style={styles.badgeAdminMini}>
+                        <Text style={styles.badgeAdminMiniTxt}>
+                          {normalizarLogin(p.nome) === 'douglas' ? '👑 Admin Principal' : '👑 Admin'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.badgeComumMini}>
+                        <Text style={styles.badgeComumMiniTxt}>⚽ Atleta</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.jogadorSub}>
+                    {p.status} • {p.posicao}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={copiarTextoWhatsApp} style={styles.btnWhats}>
-                  <Text style={styles.btnWhatsTexto}>💬 WhatsApp</Text>
-                </TouchableOpacity>
               </View>
 
-              <View style={styles.timesGrid}>
-                {timesSorteados.map((time, idx) => (
-                  <View
-                    key={time.id}
+              <View style={styles.overallDestaqueBox}>
+                <Text style={styles.overallDestaqueLabel}>OVERALL</Text>
+                <Text style={styles.overallDestaqueValor}>{p.overall}</Text>
+              </View>
+            </View>
+
+            {/* ATRIBUTOS INDIVIDUAIS (1 a 5) */}
+            <View style={styles.atributosGrid}>
+              <View style={styles.atributoItem}>
+                <Text style={styles.atributoSigla}>VEL</Text>
+                <Text style={styles.atributoNota}>{p.velocidade || 2}</Text>
+              </View>
+              <View style={styles.atributoItem}>
+                <Text style={styles.atributoSigla}>CHU</Text>
+                <Text style={styles.atributoNota}>{p.chute || 2}</Text>
+              </View>
+              <View style={styles.atributoItem}>
+                <Text style={styles.atributoSigla}>MAR</Text>
+                <Text style={styles.atributoNota}>{p.marcacao || 2}</Text>
+              </View>
+              <View style={styles.atributoItem}>
+                <Text style={styles.atributoSigla}>PAS</Text>
+                <Text style={styles.atributoNota}>{p.passe || 2}</Text>
+              </View>
+              <View style={styles.atributoItem}>
+                <Text style={styles.atributoSigla}>HAB</Text>
+                <Text style={styles.atributoNota}>{p.habilidade || 2}</Text>
+              </View>
+            </View>
+
+            {/* AÇÕES: ALTERNAR ADMIN / ALTERNAR GOLEIRO / EDITAR / EXCLUIR */}
+            <View style={styles.acoesJogadorLinha}>
+              {/* BOTÃO TORNAR / REMOVER ADMINISTRADOR */}
+              {normalizarLogin(p.nome) !== 'douglas' && (
+                <TouchableOpacity
+                  onPress={() => alternarAdminJogador(p.id)}
+                  style={[
+                    styles.btnAdminToggleCard,
+                    p.ehAdmin ? styles.btnAdminRemoverCard : styles.btnAdminPromoverCard,
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.cardTime,
-                      idx === 0
-                        ? styles.bordaVerde
-                        : idx === 1
-                        ? styles.bordaBranca
-                        : styles.bordaPreta,
+                      styles.btnAdminToggleCardTxt,
+                      p.ehAdmin ? styles.btnAdminRemoverCardTxt : styles.btnAdminPromoverCardTxt,
                     ]}
                   >
-                    {/* CABEÇALHO DO TIME */}
-                    <View
-                      style={[
-                        styles.timeHeader,
-                        { backgroundColor: time.cor },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.timeNome,
-                          { color: time.textColor || '#ffffff' },
-                        ]}
-                      >
-                        {time.nome.toUpperCase()}
-                      </Text>
-                      <View style={styles.timePoderBadge}>
-                        <Text style={styles.timePoderTxt}>Poder: {time.poderTotal}</Text>
-                      </View>
-                    </View>
+                    {p.ehAdmin ? '❌ Tirar Admin' : '👑 Tornar Admin'}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-                    {/* LISTA DE JOGADORES DO TIME */}
-                    <View style={styles.timeJogadoresLista}>
-                      {time.jogadores.map((j, jIdx) => (
-                        <View key={j.id} style={styles.timeJogadorItem}>
-                          <Text style={styles.timeJogadorIndex}>{jIdx + 1}.</Text>
-                          <Text style={styles.timeJogadorAvatar}>{j.avatar}</Text>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.timeJogadorNome}>{j.nome}</Text>
-                            <Text style={styles.timeJogadorPos}>
-                              {j.posicao === 'Goleiro' ? '🧤 Goleiro' : 'Linha'}
-                            </Text>
-                          </View>
-                          <View style={styles.timeJogadorOvrBox}>
-                            <Text style={styles.timeJogadorOvrTxt}>{j.overall}</Text>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              <TouchableOpacity onPress={realizarSorteio} style={styles.btnReSortear}>
-                <Text style={styles.btnReSortearTexto}>🔄 Re-sortear Times</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* SEÇÃO 2: BANCO DE JOGADORES & TABELA DE HABILIDADES */}
-      {subSecao === 'jogadores' && (
-        <View>
-          {/* BARRA DE PESQUISA E NOVO JOGADOR */}
-          <View style={styles.buscaLinha}>
-            <TextInput
-              style={styles.inputBusca}
-              placeholder="Buscar jogador..."
-              value={buscaJogador}
-              onChangeText={setBuscaJogador}
-            />
-            <TouchableOpacity style={styles.btnNovoJogador} onPress={() => abrirModalJogador()}>
-              <Text style={styles.btnNovoJogadorTexto}>+ Novo</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* FILTROS DE TIPO */}
-          <View style={styles.filtrosTipoRow}>
-            {['todos', 'mensalista', 'diarista', 'goleiro'].map((f) => (
               <TouchableOpacity
-                key={f}
-                style={[styles.filtroTipoBtn, filtroTipo === f && styles.filtroTipoBtnAtivo]}
-                onPress={() => setFiltroTipo(f)}
+                onPress={() => alternarPosicaoJogador(p.id)}
+                style={[
+                  styles.btnTogglePosicaoCard,
+                  p.posicao === 'Goleiro' ? styles.btnVoltarLinhaCard : styles.btnVirarGoleiroCard,
+                ]}
               >
-                <Text style={[styles.filtroTipoTxt, filtroTipo === f && styles.filtroTipoTxtAtivo]}>
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                <Text style={styles.btnTogglePosicaoCardTxt}>
+                  {p.posicao === 'Goleiro' ? '🏃 Linha' : '🧤 Goleiro'}
                 </Text>
               </TouchableOpacity>
-            ))}
+
+              <TouchableOpacity onPress={() => abrirModalJogador(p)} style={styles.btnEditarCard}>
+                <Text style={styles.btnEditarCardTxt}>✏️ Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => excluirJogador(p.id)} style={styles.btnExcluirCard}>
+                <Text style={styles.btnExcluirCardTxt}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+        ))}
+      </View>
 
-          {/* LISTA DE JOGADORES COM HABILIDADES */}
-          <View style={styles.jogadoresLista}>
-            {jogadoresFiltrados.map((p) => (
-              <View key={p.id} style={styles.cardJogadorHabilidade}>
-                <View style={styles.jogadorCardTopo}>
-                  <View style={styles.jogadorIdentidade}>
-                    <Text style={styles.jogadorAvatarGrande}>{p.avatar}</Text>
-                    <View>
-                      <Text style={styles.jogadorNomeGrande}>{p.nome}</Text>
-                      <Text style={styles.jogadorSub}>
-                        {p.status} • {p.posicao}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.overallDestaqueBox}>
-                    <Text style={styles.overallDestaqueLabel}>PODER</Text>
-                    <Text style={styles.overallDestaqueValor}>{p.overall}</Text>
-                  </View>
-                </View>
-
-                {/* ATRIBUTOS INDIVIDUAIS (1 a 5) */}
-                <View style={styles.atributosGrid}>
-                  <View style={styles.atributoItem}>
-                    <Text style={styles.atributoSigla}>VEL</Text>
-                    <Text style={styles.atributoNota}>{p.velocidade || 2}</Text>
-                  </View>
-                  <View style={styles.atributoItem}>
-                    <Text style={styles.atributoSigla}>CHU</Text>
-                    <Text style={styles.atributoNota}>{p.chute || 2}</Text>
-                  </View>
-                  <View style={styles.atributoItem}>
-                    <Text style={styles.atributoSigla}>MAR</Text>
-                    <Text style={styles.atributoNota}>{p.marcacao || 2}</Text>
-                  </View>
-                  <View style={styles.atributoItem}>
-                    <Text style={styles.atributoSigla}>PAS</Text>
-                    <Text style={styles.atributoNota}>{p.passe || 2}</Text>
-                  </View>
-                  <View style={styles.atributoItem}>
-                    <Text style={styles.atributoSigla}>HAB</Text>
-                    <Text style={styles.atributoNota}>{p.habilidade || 2}</Text>
-                  </View>
-                </View>
-
-                {/* BOTÕES DE AÇÃO */}
-                <View style={styles.cardJogadorAcoes}>
-                  <TouchableOpacity
-                    style={styles.btnEditarHabilidades}
-                    onPress={() => abrirModalJogador(p)}
-                  >
-                    <Text style={styles.btnEditarHabilidadesTxt}>✏️ Editar Habilidades</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.btnExcluirMini}
-                    onPress={() => excluirJogador(p.id)}
-                  >
-                    <Text>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* MODAL DE CADASTRO / EDIÇÃO DE JOGADOR E NOTAS */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DO JOGADOR */}
       <Modal visible={modalJogador} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <ScrollView contentContainerStyle={styles.modalScroll}>
-            <View style={styles.modalContent}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalCard}>
               <Text style={styles.modalTitulo}>
-                {jogadorEmEdicao ? 'Editar Habilidades' : 'Cadastrar Novo Jogador'}
-              </Text>
-              <Text style={styles.modalSub}>
-                Defina o poder e notas de 1 a 5 em cada fundamento.
+                {jogadorEmEdicao ? `Editar ${jogadorEmEdicao.nome}` : 'Novo Jogador'}
               </Text>
 
               <Text style={styles.labelInput}>Nome do Jogador:</Text>
@@ -503,10 +417,11 @@ export default function PlayersTab({
                 style={styles.inputModal}
                 value={formNome}
                 onChangeText={setFormNome}
-                placeholder="Ex: Neymar Silva"
+                placeholder="Ex: Gabriel Jesus"
+                placeholderTextColor="#64748b"
               />
 
-              <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.labelInput}>Status:</Text>
                   <View style={styles.tipoPickerRow}>
@@ -542,30 +457,51 @@ export default function PlayersTab({
                 </View>
               </View>
 
-              <View style={styles.divisorLinha} />
+              {/* PERMISSÃO DE ACESSO / PERFIL ADMINISTRADOR */}
+              {normalizarLogin(formNome) !== 'douglas' && (
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={styles.labelInput}>Permissão de Acesso:</Text>
+                  <View style={styles.tipoPickerRow}>
+                    <TouchableOpacity
+                      style={[styles.tipoPickerBtn, !formEhAdmin && styles.tipoPickerBtnAtivo]}
+                      onPress={() => setFormEhAdmin(false)}
+                    >
+                      <Text style={[styles.tipoPickerTxt, !formEhAdmin && styles.tipoPickerTxtAtivo]}>
+                        ⚽ Usuário Comum
+                      </Text>
+                    </TouchableOpacity>
 
-              <Text style={[styles.labelInput, { fontSize: 13, marginBottom: 12 }]}>
-                ⭐ Atributos (Notas de 1 a 5):
-              </Text>
+                    <TouchableOpacity
+                      style={[styles.tipoPickerBtn, formEhAdmin && styles.tipoPickerBtnAdminAtivo]}
+                      onPress={() => setFormEhAdmin(true)}
+                    >
+                      <Text style={[styles.tipoPickerTxt, formEhAdmin && styles.tipoPickerTxtAdminAtivo]}>
+                        👑 Administrador
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
-              {/* SELETORES DE NOTAS DE 1 A 5 */}
+              <Text style={styles.labelSubSecaoModal}>Notas de Habilidade (1 a 5 estrelas):</Text>
+
               {[
-                { label: 'Velocidade', val: formVelocidade, setVal: setFormVelocidade },
-                { label: 'Chute', val: formChute, setVal: setFormChute },
-                { label: 'Marcação', val: formMarcacao, setVal: setFormMarcacao },
-                { label: 'Passe', val: formPasse, setVal: setFormPasse },
-                { label: 'Habilidade', val: formHabilidade, setVal: setFormHabilidade },
-              ].map((item) => (
-                <View key={item.label} style={styles.seletorAtributoLinha}>
-                  <Text style={styles.seletorLabel}>{item.label}</Text>
-                  <View style={styles.botoesNotaRow}>
+                { label: 'Velocidade (VEL):', val: formVelocidade, setter: setFormVelocidade },
+                { label: 'Chute / Finalização (CHU):', val: formChute, setter: setFormChute },
+                { label: 'Marcação / Defesa (MAR):', val: formMarcacao, setter: setFormMarcacao },
+                { label: 'Passe / Visão (PAS):', val: formPasse, setter: setFormPasse },
+                { label: 'Habilidade / Drible (HAB):', val: formHabilidade, setter: setFormHabilidade },
+              ].map((item, idx) => (
+                <View key={idx} style={styles.sliderLinha}>
+                  <Text style={styles.sliderLabel}>{item.label}</Text>
+                  <View style={styles.estrelasRow}>
                     {[1, 2, 3, 4, 5].map((nota) => (
                       <TouchableOpacity
                         key={nota}
-                        style={[styles.btnNota, item.val === nota && styles.btnNotaAtiva]}
-                        onPress={() => item.setVal(nota)}
+                        onPress={() => item.setter(nota)}
+                        style={[styles.estrelaBtn, item.val >= nota && styles.estrelaBtnAtiva]}
                       >
-                        <Text style={[styles.btnNotaTxt, item.val === nota && styles.btnNotaTxtAtiva]}>
+                        <Text style={[styles.estrelaTxt, item.val >= nota && styles.estrelaTxtAtiva]}>
                           {nota}
                         </Text>
                       </TouchableOpacity>
@@ -574,19 +510,22 @@ export default function PlayersTab({
                 </View>
               ))}
 
-              <View style={styles.resumoPoderFinal}>
-                <Text style={styles.resumoPoderTxt}>Poder Calculado (Overall):</Text>
-                <Text style={styles.resumoPoderNumero}>
-                  {formVelocidade + formChute + formMarcacao + formPasse + formHabilidade} pts
+              <View style={styles.overallPreviaBox}>
+                <Text style={styles.overallPreviaTxt}>
+                  Overall Resultante:{' '}
+                  <Text style={{ fontWeight: '900', color: '#10b981' }}>
+                    {formVelocidade + formChute + formMarcacao + formPasse + formHabilidade}
+                  </Text>{' '}
+                  pts
                 </Text>
               </View>
 
               <View style={styles.modalBotoesLinha}>
-                <TouchableOpacity style={styles.modalBtnCancelar} onPress={() => setModalJogador(false)}>
-                  <Text style={styles.modalBtnCancelarTexto}>Cancelar</Text>
+                <TouchableOpacity style={styles.btnCancelarModal} onPress={() => setModalJogador(false)}>
+                  <Text style={styles.btnCancelarModalTxt}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.modalBtnSalvar} onPress={salvarJogador}>
-                  <Text style={styles.modalBtnSalvarTexto}>Salvar Jogador</Text>
+                <TouchableOpacity style={styles.btnSalvarModal} onPress={salvarJogador}>
+                  <Text style={styles.btnSalvarModalTxt}>Salvar</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -600,606 +539,405 @@ export default function PlayersTab({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#031a0e',
   },
   contentContainer: {
     padding: 16,
     paddingBottom: 40,
   },
-  subAbasContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 16,
-  },
-  subAbaBotao: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 10,
-  },
-  subAbaAtiva: {
-    backgroundColor: '#16a34a',
-  },
-  subAbaTexto: {
-    color: '#94a3b8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  subAbaTextoAtiva: {
-    color: '#ffffff',
-  },
-  cardSorteioConfig: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardHeaderLinha: {
+  headerLista: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  cardTitulo: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  cardSub: {
-    fontSize: 11,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  badgeContador: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  badgeNormal: {
-    backgroundColor: '#f1f5f9',
-  },
-  badge15Ideal: {
-    backgroundColor: '#dcfce7',
-    borderWidth: 1.5,
-    borderColor: '#22c55e',
-  },
-  badgeContadorTexto: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#166534',
-  },
-  acoesRapidasLinha: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  btnAcaoMini: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  btnAcaoMiniTexto: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  labelGrade: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 10,
-  },
-  gradePresenca: {
-    flexDirection: 'row',
+    marginBottom: 16,
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 16,
+    gap: 8,
   },
-  chipJogadorPresenca: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  chipJogadorSelecionado: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
-  },
-  chipAvatar: {
-    fontSize: 14,
-    marginRight: 4,
-  },
-  chipNome: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#334155',
-    marginRight: 4,
-  },
-  chipNomeSelecionado: {
-    color: '#ffffff',
-  },
-  chipOverall: {
-    fontSize: 10,
+  tituloSecao: {
+    color: '#f8fafc',
+    fontSize: 20,
     fontWeight: '800',
-    color: '#64748b',
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
   },
-  chipOverallSelecionado: {
-    color: '#064e3b',
-    backgroundColor: '#a7f3d0',
-  },
-  btnSortearPrincipal: {
-    backgroundColor: '#0f172a',
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  btnSortearDestaque: {
-    backgroundColor: '#16a34a',
-  },
-  btnSortearTexto: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  containerTimesSorteados: {
-    marginTop: 4,
-  },
-  resultadoHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  resultadoTitulo: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  resultadoSub: {
+  subtituloSecao: {
+    color: '#6ee7b7',
     fontSize: 12,
-    color: '#475569',
     marginTop: 2,
-  },
-  btnWhats: {
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  btnWhatsTexto: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  timesGrid: {
-    gap: 12,
-  },
-  cardTime: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  bordaVerde: {
-    borderLeftWidth: 6,
-    borderLeftColor: '#16a34a',
-  },
-  bordaBranca: {
-    borderLeftWidth: 6,
-    borderLeftColor: '#94a3b8',
-  },
-  bordaPreta: {
-    borderLeftWidth: 6,
-    borderLeftColor: '#18181b',
-  },
-  timeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  timeNome: {
-    fontSize: 14,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  timePoderBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  timePoderTxt: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  timeJogadoresLista: {
-    padding: 12,
-    gap: 8,
-  },
-  timeJogadorItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeJogadorIndex: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#94a3b8',
-    width: 20,
-  },
-  timeJogadorAvatar: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  timeJogadorNome: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1e293b',
-  },
-  timeJogadorPos: {
-    fontSize: 11,
-    color: '#64748b',
-  },
-  timeJogadorOvrBox: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  timeJogadorOvrTxt: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0f172a',
-  },
-  btnReSortear: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  btnReSortearTexto: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#334155',
-  },
-  buscaLinha: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  inputBusca: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    fontSize: 13,
   },
   btnNovoJogador: {
-    backgroundColor: '#16a34a',
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    borderRadius: 10,
+    backgroundColor: '#10b981',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
   },
   btnNovoJogadorTexto: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+    color: '#022c22',
     fontSize: 13,
+    fontWeight: '800',
+  },
+  buscaLinha: {
+    marginBottom: 12,
+  },
+  inputBusca: {
+    backgroundColor: '#062615',
+    color: '#f8fafc',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#0f4829',
   },
   filtrosTipoRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 14,
+    gap: 8,
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
   filtroTipoBtn: {
-    flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#062615',
     paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#0f4829',
   },
   filtroTipoBtnAtivo: {
-    backgroundColor: '#0f172a',
-    borderColor: '#0f172a',
+    backgroundColor: '#10b981',
+    borderColor: '#34d399',
   },
   filtroTipoTxt: {
-    fontSize: 11,
+    color: '#94a3b8',
+    fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
   },
   filtroTipoTxtAtivo: {
-    color: '#ffffff',
+    color: '#022c22',
+    fontWeight: '800',
   },
   jogadoresLista: {
-    gap: 10,
+    gap: 12,
   },
   cardJogadorHabilidade: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: '#062817',
+    borderRadius: 12,
     padding: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 4,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#0f4829',
   },
   jogadorCardTopo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   jogadorIdentidade: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    gap: 10,
   },
   jogadorAvatarGrande: {
-    fontSize: 28,
-    marginRight: 10,
+    fontSize: 24,
   },
   jogadorNomeGrande: {
-    fontSize: 16,
+    color: '#f8fafc',
+    fontSize: 15,
     fontWeight: '800',
-    color: '#0f172a',
   },
   jogadorSub: {
+    color: '#94a3b8',
     fontSize: 11,
-    color: '#64748b',
-    marginTop: 1,
   },
   overallDestaqueBox: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: '#0a321d',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: '#10b981',
   },
   overallDestaqueLabel: {
+    color: '#a7f3d0',
     fontSize: 9,
     fontWeight: '800',
-    color: '#065f46',
   },
   overallDestaqueValor: {
+    color: '#34d399',
     fontSize: 18,
     fontWeight: '900',
-    color: '#047857',
   },
   atributosGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
-    borderRadius: 10,
-    padding: 8,
+    backgroundColor: '#041f11',
+    padding: 10,
+    borderRadius: 8,
     marginBottom: 10,
   },
   atributoItem: {
     alignItems: 'center',
-    flex: 1,
   },
   atributoSigla: {
-    fontSize: 10,
-    fontWeight: '700',
     color: '#64748b',
-    marginBottom: 2,
+    fontSize: 10,
+    fontWeight: '800',
   },
   atributoNota: {
+    color: '#f8fafc',
     fontSize: 14,
     fontWeight: '800',
-    color: '#0f172a',
+    marginTop: 2,
   },
-  cardJogadorAcoes: {
+  acoesJogadorLinha: {
     flexDirection: 'row',
-    gap: 8,
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 8,
   },
-  btnEditarHabilidades: {
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
+  btnTogglePosicaoCard: {
     paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    borderRadius: 6,
   },
-  btnEditarHabilidadesTxt: {
+  btnVirarGoleiroCard: {
+    backgroundColor: '#3b0764',
+    borderWidth: 1,
+    borderColor: '#a855f7',
+  },
+  btnVoltarLinhaCard: {
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#64748b',
+  },
+  btnTogglePosicaoCardTxt: {
+    color: '#e2e8f0',
     fontSize: 11,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
   },
-  btnExcluirMini: {
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 8,
+  btnEditarCard: {
     paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: '#0f4829',
   },
+  btnEditarCardTxt: {
+    color: '#d1fae5',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  btnExcluirCard: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    backgroundColor: '#1e293b',
+  },
+  btnExcluirCardTxt: {
+    fontSize: 12,
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+  modalScrollContent: {
+    padding: 16,
+    justifyContent: 'center',
+  },
+  modalCard: {
+    backgroundColor: '#062817',
+    borderRadius: 16,
     padding: 20,
-  },
-  modalScroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    width: '100%',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 22,
-    width: '100%',
-    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: '#10b981',
   },
   modalTitulo: {
+    color: '#f8fafc',
     fontSize: 18,
     fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  modalSub: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   labelInput: {
+    color: '#cbd5e1',
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
     marginBottom: 6,
   },
   inputModal: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    backgroundColor: '#041f11',
+    color: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
     fontSize: 14,
-    color: '#0f172a',
-    marginBottom: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#0f4829',
   },
   tipoPickerRow: {
     flexDirection: 'row',
     gap: 6,
-    marginBottom: 10,
   },
   tipoPickerBtn: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
     paddingVertical: 8,
-    borderRadius: 8,
     alignItems: 'center',
+    borderRadius: 6,
+    backgroundColor: '#041f11',
+    borderWidth: 1,
+    borderColor: '#0f4829',
   },
   tipoPickerBtnAtivo: {
-    backgroundColor: '#0f172a',
+    backgroundColor: '#10b981',
+    borderColor: '#34d399',
+  },
+  tipoPickerBtnAdminAtivo: {
+    backgroundColor: '#78350f',
+    borderColor: '#f59e0b',
   },
   tipoPickerTxt: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
+    color: '#94a3b8',
+    fontSize: 12,
+    fontWeight: '600',
   },
   tipoPickerTxtAtivo: {
-    color: '#ffffff',
+    color: '#022c22',
+    fontWeight: '800',
   },
-  divisorLinha: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 12,
+  tipoPickerTxtAdminAtivo: {
+    color: '#fef08a',
+    fontWeight: '800',
   },
-  seletorAtributoLinha: {
+  badgeAdminMini: {
+    backgroundColor: '#3b2904',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeAdminMiniTxt: {
+    color: '#fbbf24',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  badgeComumMini: {
+    backgroundColor: '#071f14',
+    borderWidth: 1,
+    borderColor: '#1e3a2b',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  badgeComumMiniTxt: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  btnAdminToggleCard: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  btnAdminPromoverCard: {
+    backgroundColor: '#1c1906',
+    borderColor: '#f59e0b',
+  },
+  btnAdminRemoverCard: {
+    backgroundColor: '#200b0b',
+    borderColor: '#ef4444',
+  },
+  btnAdminToggleCardTxt: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  btnAdminPromoverCardTxt: {
+    color: '#fbbf24',
+  },
+  btnAdminRemoverCardTxt: {
+    color: '#f87171',
+  },
+  labelSubSecaoModal: {
+    color: '#a7f3d0',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  sliderLinha: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  seletorLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+  sliderLabel: {
+    color: '#cbd5e1',
+    fontSize: 12,
   },
-  botoesNotaRow: {
+  estrelasRow: {
     flexDirection: 'row',
     gap: 6,
   },
-  btnNota: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
+  estrelaBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#041f11',
     justifyContent: 'center',
-  },
-  btnNotaAtiva: {
-    backgroundColor: '#16a34a',
-  },
-  btnNotaTxt: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  btnNotaTxtAtiva: {
-    color: '#ffffff',
-  },
-  resumoPoderFinal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ecfdf5',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 10,
     borderWidth: 1,
-    borderColor: '#a7f3d0',
+    borderColor: '#0f4829',
   },
-  resumoPoderTxt: {
+  estrelaBtnAtiva: {
+    backgroundColor: '#10b981',
+    borderColor: '#34d399',
+  },
+  estrelaTxt: {
+    color: '#64748b',
     fontSize: 12,
     fontWeight: '700',
-    color: '#065f46',
   },
-  resumoPoderNumero: {
-    fontSize: 16,
+  estrelaTxtAtiva: {
+    color: '#022c22',
     fontWeight: '900',
-    color: '#047857',
+  },
+  overallPreviaBox: {
+    backgroundColor: '#041f11',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  overallPreviaTxt: {
+    color: '#cbd5e1',
+    fontSize: 14,
   },
   modalBotoesLinha: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 10,
-    marginTop: 18,
   },
-  modalBtnCancelar: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
+  btnCancelarModal: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#1e293b',
   },
-  modalBtnCancelarTexto: {
-    color: '#64748b',
-    fontWeight: '700',
+  btnCancelarModalTxt: {
+    color: '#94a3b8',
     fontSize: 13,
+    fontWeight: '600',
   },
-  modalBtnSalvar: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#16a34a',
-    alignItems: 'center',
+  btnSalvarModal: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
   },
-  modalBtnSalvarTexto: {
-    color: '#ffffff',
-    fontWeight: 'bold',
+  btnSalvarModalTxt: {
+    color: '#022c22',
     fontSize: 13,
+    fontWeight: '800',
   },
 });
-

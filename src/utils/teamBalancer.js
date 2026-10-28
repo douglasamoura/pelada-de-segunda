@@ -1,130 +1,123 @@
 /**
  * Utilitário de Balanceamento de Times para Pelada de Segunda
- * Divisão em 3 times de 5 jogadores mantendo o "poder" (overall) equilibrado.
+ * Divisão em 3 times de 5 jogadores de linha mantendo o poder equilibrado
+ * e diversificando em relação aos times da semana anterior.
  */
 
-export function sortearTimesEquilibrados(jogadoresSelecionados, numTimes = 3, jogadoresPorTime = 5) {
+export function sortearTimesEquilibrados(
+  jogadoresSelecionados,
+  numTimes = 3,
+  jogadoresPorTime = 5,
+  timesSemanaAnterior = null
+) {
   if (!jogadoresSelecionados || jogadoresSelecionados.length === 0) {
     return [
-      { id: 1, nome: 'Time Colete', cor: '#16a34a', jogadores: [], poderTotal: 0, poderMedio: 0 },
-      { id: 2, nome: 'Time Branco', cor: '#f8fafc', jogadores: [], poderTotal: 0, poderMedio: 0, textColor: '#1e293b' },
-      { id: 3, nome: 'Time Preto', cor: '#18181b', jogadores: [], poderTotal: 0, poderMedio: 0 },
+      { id: 1, nome: 'Time Colete', cor: '#16a34a', jogadores: [], poderTotal: 0 },
+      { id: 2, nome: 'Time Branco', cor: '#f8fafc', textColor: '#1e293b', jogadores: [], poderTotal: 0 },
+      { id: 3, nome: 'Time Preto', cor: '#18181b', jogadores: [], poderTotal: 0 },
     ];
   }
 
-  // Clona a lista
-  const lista = [...jogadoresSelecionados];
+  // Apenas jogadores de linha (os goleiros são fixos e selecionados por partida)
+  const linha = jogadoresSelecionados
+    .filter((j) => j.posicao !== 'Goleiro')
+    .slice(0, numTimes * jogadoresPorTime);
 
-  // Separa goleiros e jogadores de linha
-  const goleiros = lista.filter(j => j.posicao === 'Goleiro');
-  const linha = lista.filter(j => j.posicao !== 'Goleiro');
-
-  // Embaralha levemente jogadores com mesma nota para haver variedade a cada sorteio
-  linha.sort((a, b) => {
-    const diff = b.overall - a.overall;
-    if (diff === 0) return Math.random() - 0.5;
-    return diff;
-  });
-
-  const times = [
-    { id: 1, nome: 'Time Colete', cor: '#16a34a', jogadores: [] },
-    { id: 2, nome: 'Time Branco', cor: '#f8fafc', jogadores: [], textColor: '#1e293b' },
-    { id: 3, nome: 'Time Preto', cor: '#18181b', jogadores: [] },
-  ];
-
-  // 1. Distribui goleiros primeiro (1 por time enquanto houver)
-  goleiros.forEach((g, idx) => {
-    const tIndex = idx % numTimes;
-    times[tIndex].jogadores.push(g);
-  });
-
-  // 2. Distribuição gulosa / balanceada para os jogadores de linha
-  // Para cada jogador, atribui ao time que tem menor poder atual e que ainda tem vaga
-  for (const jogador of linha) {
-    // Filtra times com vagas
-    const timesComVaga = times.filter(t => t.jogadores.length < jogadoresPorTime);
-    const timesConsiderados = timesComVaga.length > 0 ? timesComVaga : times;
-
-    // Encontra o time com menor soma de overall
-    let timeMenorPoder = timesConsiderados[0];
-    let menorPoder = timeMenorPoder.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0);
-
-    for (let i = 1; i < timesConsiderados.length; i++) {
-      const p = timesConsiderados[i].jogadores.reduce((acc, j) => acc + (j.overall || 10), 0);
-      if (p < menorPoder) {
-        menorPoder = p;
-        timeMenorPoder = timesConsiderados[i];
-      }
-    }
-
-    timeMenorPoder.jogadores.push(jogador);
-  }
-
-  // 3. Otimização de troca (Local Search): tenta trocar 1 jogador de linha de time mais forte
-  // com 1 de time mais fraco para diminuir ainda mais a diferença entre times
-  let melhorou = true;
-  let iteracoes = 0;
-  while (melhorou && iteracoes < 30) {
-    melhorou = false;
-    iteracoes++;
-
-    // Calcula poderes atuais
-    const somas = times.map(t => t.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0));
-    const maxPoder = Math.max(...somas);
-    const minPoder = Math.min(...somas);
-    const diffAtual = maxPoder - minPoder;
-
-    if (diffAtual <= 1.5) break; // Já está extremamente equilibrado
-
-    const idxMax = somas.indexOf(maxPoder);
-    const idxMin = somas.indexOf(minPoder);
-
-    const timeMax = times[idxMax];
-    const timeMin = times[idxMin];
-
-    let melhorTroca = null;
-    let menorDiff = diffAtual;
-
-    for (let i = 0; i < timeMax.jogadores.length; i++) {
-      const j1 = timeMax.jogadores[i];
-      if (j1.posicao === 'Goleiro') continue; // não troca goleiro
-
-      for (let j = 0; j < timeMin.jogadores.length; j++) {
-        const j2 = timeMin.jogadores[j];
-        if (j2.posicao === 'Goleiro') continue;
-
-        // Se trocarmos j1 por j2
-        const novaSomaMax = somas[idxMax] - j1.overall + j2.overall;
-        const novaSomaMin = somas[idxMin] - j2.overall + j1.overall;
-        const novasSomas = [...somas];
-        novasSomas[idxMax] = novaSomaMax;
-        novasSomas[idxMin] = novaSomaMin;
-
-        const novaDiff = Math.max(...novasSomas) - Math.min(...novasSomas);
-        if (novaDiff < menorDiff) {
-          menorDiff = novaDiff;
-          melhorTroca = { i, j };
+  // Mapa de duplas que jogaram juntas na semana anterior
+  const duplasSemanaAnterior = new Set();
+  if (timesSemanaAnterior && Array.isArray(timesSemanaAnterior)) {
+    timesSemanaAnterior.forEach((t) => {
+      const jgs = t.jogadores || [];
+      for (let i = 0; i < jgs.length; i++) {
+        for (let k = i + 1; k < jgs.length; k++) {
+          duplasSemanaAnterior.add(`${jgs[i].id}_${jgs[k].id}`);
+          duplasSemanaAnterior.add(`${jgs[k].id}_${jgs[i].id}`);
         }
       }
+    });
+  }
+
+  let melhorDivisao = null;
+  let menorScoreTotal = Infinity;
+
+  // Realiza múltiplas iterações estocásticas com penalidade para duplas repetidas
+  const TENTATIVAS = 60;
+
+  for (let tentativa = 0; tentativa < TENTATIVAS; tentativa++) {
+    // Embaralha com leve aleatoriedade mantendo peso do overall
+    const candidatos = [...linha].sort(() => Math.random() - 0.5);
+    candidatos.sort((a, b) => {
+      const diff = (b.overall || 10) - (a.overall || 10);
+      return diff + (Math.random() * 2 - 1);
+    });
+
+    const times = [
+      { id: 1, nome: 'Time Colete', cor: '#16a34a', jogadores: [] },
+      { id: 2, nome: 'Time Branco', cor: '#f8fafc', textColor: '#1e293b', jogadores: [] },
+      { id: 3, nome: 'Time Preto', cor: '#18181b', jogadores: [] },
+    ];
+
+    // Distribuição gulosa considerando vagas e poder
+    for (const jogador of candidatos) {
+      const timesComVaga = times.filter((t) => t.jogadores.length < jogadoresPorTime);
+      const timesConsiderados = timesComVaga.length > 0 ? timesComVaga : times;
+
+      let melhorTime = timesConsiderados[0];
+      let menorCusto = Infinity;
+
+      for (const t of timesConsiderados) {
+        const poderAtual = t.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0);
+        
+        // Penalidade caso já tenha companheiro da semana passada
+        let repeticoes = 0;
+        t.jogadores.forEach((companheiro) => {
+          if (duplasSemanaAnterior.has(`${jogador.id}_${companheiro.id}`)) {
+            repeticoes += 1;
+          }
+        });
+
+        const custo = poderAtual + repeticoes * 2.5;
+        if (custo < menorCusto) {
+          menorCusto = custo;
+          melhorTime = t;
+        }
+      }
+
+      melhorTime.jogadores.push(jogador);
     }
 
-    if (melhorTroca && menorDiff < diffAtual) {
-      const temp = timeMax.jogadores[melhorTroca.i];
-      timeMax.jogadores[melhorTroca.i] = timeMin.jogadores[melhorTroca.j];
-      timeMin.jogadores[melhorTroca.j] = temp;
-      melhorou = true;
+    // Calcula poderes e penalidade de repetição
+    const poderes = times.map((t) =>
+      t.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0)
+    );
+    const diffPoder = Math.max(...poderes) - Math.min(...poderes);
+
+    let totalRepeticoes = 0;
+    times.forEach((t) => {
+      for (let i = 0; i < t.jogadores.length; i++) {
+        for (let k = i + 1; k < t.jogadores.length; k++) {
+          if (duplasSemanaAnterior.has(`${t.jogadores[i].id}_${t.jogadores[k].id}`)) {
+            totalRepeticoes += 1;
+          }
+        }
+      }
+    });
+
+    // Score composto: prioriza equilíbrio de poder (diffPoder * 2) + diversidade (totalRepeticoes)
+    const scoreTotal = diffPoder * 2.0 + totalRepeticoes * 0.8;
+
+    if (scoreTotal < menorScoreTotal) {
+      menorScoreTotal = scoreTotal;
+      melhorDivisao = times.map((t) => {
+        const pTotal = t.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0);
+        return {
+          ...t,
+          poderTotal: Math.round(pTotal * 10) / 10,
+          poderMedio: Math.round((pTotal / (t.jogadores.length || 1)) * 10) / 10,
+        };
+      });
     }
   }
 
-  // 4. Formata resultado final com estatísticas
-  return times.map(t => {
-    const total = t.jogadores.reduce((acc, j) => acc + (j.overall || 10), 0);
-    const media = t.jogadores.length > 0 ? (total / t.jogadores.length).toFixed(1) : 0;
-    return {
-      ...t,
-      poderTotal: Math.round(total * 10) / 10,
-      poderMedio: parseFloat(media),
-    };
-  });
+  return melhorDivisao;
 }
-

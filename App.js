@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 
 import { StorageService } from './src/storage/storage';
+import { AuthService, normalizarLogin } from './src/services/authService';
+import LoginScreen from './src/components/LoginScreen';
 import FinanceiroTab from './src/components/FinanceiroTab';
 import PlayersTab from './src/components/PlayersTab';
 import PartidasTab from './src/components/PartidasTab';
@@ -20,8 +22,13 @@ import PresencaTab from './src/components/PresencaTab';
 export default function App() {
   const [carregando, setCarregando] = useState(true);
 
+  // Sessão do Usuário Logado e Controle de Acesso
+  const [usuarioLogado, setUsuarioLogado] = useState(null);
+
   // Estados principais da aplicação
-  const [abaAtiva, setAbaAtiva] = useState('caixa'); // 'caixa' | 'times' | 'jogos' | 'ranking' | 'presenca'
+  // Ordem das Abas solicitada pelo usuário:
+  // 1) Presença | 2) Jogos / Times | 3) Ranking | 4) Jogadores (Admin) | 5) Caixa
+  const [abaAtiva, setAbaAtiva] = useState('presenca');
   const [config, setConfig] = useState({});
   const [players, setPlayers] = useState([]);
   const [pagamentos, setPagamentos] = useState({});
@@ -31,10 +38,11 @@ export default function App() {
   const [categoriasSaida, setCategoriasSaida] = useState([]);
   const [historicoRanking, setHistoricoRanking] = useState({});
   
-  // Times ativos para as partidas (definidos pelo sorteio ou padrão)
+  // Times ativos e jogadores confirmados para o sorteio
   const [timesAtuais, setTimesAtuais] = useState(null);
+  const [jogadoresPreSelecionados, setJogadoresPreSelecionados] = useState(null);
 
-  // Carrega dados iniciais do Storage / Planilha
+  // Carrega dados iniciais do Storage / Planilha e Sessão Ativa
   useEffect(() => {
     async function inicializar() {
       try {
@@ -47,6 +55,12 @@ export default function App() {
         setCategoriasEntrada(dados.categoriasEntrada);
         setCategoriasSaida(dados.categoriasSaida);
         setHistoricoRanking(dados.historicoRanking);
+
+        // Recupera sessão se o usuário já estiver autenticado
+        const sessaoSalva = await AuthService.obterSessaoAtiva();
+        if (sessaoSalva) {
+          setUsuarioLogado(sessaoSalva);
+        }
       } catch (e) {
         console.error('Erro na inicialização:', e);
       } finally {
@@ -55,6 +69,15 @@ export default function App() {
     }
     inicializar();
   }, []);
+
+  const ehAdmin = Boolean(usuarioLogado?.ehAdmin);
+
+  // Proteção: caso um usuário comum tente ficar na aba jogadores, redireciona para presença
+  useEffect(() => {
+    if (usuarioLogado && !ehAdmin && abaAtiva === 'jogadores') {
+      setAbaAtiva('presenca');
+    }
+  }, [usuarioLogado, ehAdmin, abaAtiva]);
 
   // Handlers com persistência automática no AsyncStorage
   const handleUpdateConfig = async (novaConfig) => {
@@ -65,6 +88,24 @@ export default function App() {
   const handleUpdatePlayers = async (novosPlayers) => {
     setPlayers(novosPlayers);
     await StorageService.salvarPlayers(novosPlayers);
+
+    // Se o usuário atualmente logado tiver seu papel alterado (ex: promovido ou rebaixado), sincroniza a sessão imediatamente
+    if (usuarioLogado) {
+      const meuJogadorAtualizado = novosPlayers.find(
+        (p) => p.id === usuarioLogado.id || (usuarioLogado.login && p.nome && normalizarLogin(p.nome) === usuarioLogado.login)
+      );
+      if (meuJogadorAtualizado) {
+        const novoEhAdmin = usuarioLogado.login === 'douglas' || Boolean(meuJogadorAtualizado.ehAdmin);
+        const novoUsuario = {
+          ...usuarioLogado,
+          ...meuJogadorAtualizado,
+          ehAdmin: novoEhAdmin,
+          papel: novoEhAdmin ? 'admin' : 'jogador',
+        };
+        setUsuarioLogado(novoUsuario);
+        await AuthService.salvarSessao(novoUsuario);
+      }
+    }
   };
 
   const handleUpdatePagamentos = async (novosPagamentos) => {
@@ -110,11 +151,9 @@ export default function App() {
         };
       }
 
-      // Adiciona aos pontos totais
       novoHist[playerId].pontosTotais =
         Math.round(((novoHist[playerId].pontosTotais || 0) + stats.pontos) * 10) / 10;
 
-      // Registra a pontuação na data
       if (!novoHist[playerId].pontosPorData) {
         novoHist[playerId].pontosPorData = {};
       }
@@ -135,24 +174,107 @@ export default function App() {
     );
   }
 
+  // TELA DE LOGIN OBRIGATÓRIA: Bloqueia 100% dos dados para usuários não autenticados
+  if (!usuarioLogado) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#064e3b" />
+        <LoginScreen
+          players={players}
+          onLoginSucesso={(usuario) => {
+            setUsuarioLogado(usuario);
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#064e3b" />
 
-      {/* CABEÇALHO GLOBAL */}
+      {/* CABEÇALHO GLOBAL COM INFORMAÇÕES DO USUÁRIO E SAIR */}
       <View style={styles.topHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.appBadge}>⚽ PELADA DE SEGUNDA</Text>
-          <Text style={styles.appTitulo}>Gestão & Partidas</Text>
+          <Text style={styles.appTitulo}>Toque de Bola</Text>
+          <Text style={styles.headerHorario}>Segundas • 19:00 (Monte Castelo, JF)</Text>
         </View>
+
+        {/* PERFIL DO USUÁRIO LOGADO */}
         <View style={styles.headerRightInfo}>
-          <Text style={styles.headerQuadra}>Arena Show de Bola</Text>
-          <Text style={styles.headerHorario}>Segundas • 20h às 21:30</Text>
+          <View style={styles.userPerfilLinha}>
+            <View style={styles.userTagBadge}>
+              <Text style={styles.userTagNome} numberOfLines={1}>
+                {usuarioLogado?.nome || 'Jogador'}
+              </Text>
+              <Text style={[styles.userTagPapel, ehAdmin && styles.userTagPapelAdmin]}>
+                {ehAdmin ? '👑 Administrador' : '⚽ Jogador'}
+              </Text>
+            </View>
+
+            {/* BOTÃO DE SAIR / LOGOUT */}
+            <TouchableOpacity
+              style={styles.btnSairHeader}
+              onPress={async () => {
+                await AuthService.fazerLogout();
+                setUsuarioLogado(null);
+                setAbaAtiva('presenca');
+              }}
+            >
+              <Text style={styles.btnSairHeaderTxt}>🚪 Sair</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL (BASEADA NA ABA ATIVA) */}
       <View style={styles.conteudoContainer}>
+        {/* 1) PRESENÇA */}
+        {abaAtiva === 'presenca' && (
+          <PresencaTab
+            players={players}
+            usuarioLogado={usuarioLogado}
+            ehAdmin={ehAdmin}
+            onEnviarParaSorteio={(confirmados) => {
+              setJogadoresPreSelecionados(confirmados);
+              setAbaAtiva('partidas');
+            }}
+          />
+        )}
+
+        {/* 2) JOGOS DA RODADA */}
+        {abaAtiva === 'partidas' && (
+          <PartidasTab
+            timesAtuais={timesAtuais}
+            setTimesAtuais={setTimesAtuais}
+            players={players}
+            onUpdatePlayers={handleUpdatePlayers}
+            jogadoresPreSelecionados={jogadoresPreSelecionados}
+            onAdicionarPontosRodada={handleAdicionarPontosRodada}
+            ehAdmin={ehAdmin}
+          />
+        )}
+
+        {/* 3) RANKING */}
+        {abaAtiva === 'ranking' && (
+          <RankingTab
+            players={players}
+            historicoRanking={historicoRanking}
+            onUpdateHistoricoRanking={handleUpdateHistoricoRanking}
+            ehAdmin={ehAdmin}
+          />
+        )}
+
+        {/* 4) LISTA DE JOGADORES (APENAS ADMINISTRADOR) */}
+        {ehAdmin && abaAtiva === 'jogadores' && (
+          <PlayersTab
+            players={players}
+            onUpdatePlayers={handleUpdatePlayers}
+          />
+        )}
+
+        {/* 5) CAIXA */}
         {abaAtiva === 'caixa' && (
           <FinanceiroTab
             config={config}
@@ -168,51 +290,19 @@ export default function App() {
             onUpdateCategoriasEntrada={handleUpdateCategoriasEntrada}
             categoriasSaida={categoriasSaida}
             onUpdateCategoriasSaida={handleUpdateCategoriasSaida}
-          />
-        )}
-
-        {abaAtiva === 'times' && (
-          <PlayersTab
-            players={players}
-            onUpdatePlayers={handleUpdatePlayers}
-            onTimesGerados={(times) => setTimesAtuais(times)}
-          />
-        )}
-
-        {abaAtiva === 'jogos' && (
-          <PartidasTab
-            timesAtuais={timesAtuais}
-            players={players}
-            onAdicionarPontosRodada={handleAdicionarPontosRodada}
-          />
-        )}
-
-        {abaAtiva === 'ranking' && (
-          <RankingTab
-            players={players}
-            historicoRanking={historicoRanking}
-            onUpdateHistoricoRanking={handleUpdateHistoricoRanking}
-          />
-        )}
-
-        {abaAtiva === 'presenca' && (
-          <PresencaTab
-            players={players}
-            onEnviarParaSorteio={(confirmados) => {
-              setAbaAtiva('times');
-            }}
+            ehAdmin={ehAdmin}
           />
         )}
       </View>
 
-      {/* BARRA DE NAVEGAÇÃO INFERIOR MODERNA */}
+      {/* BARRA DE NAVEGAÇÃO INFERIOR COM A ORDEM SOLICITADA */}
       <View style={styles.bottomNav}>
         {[
-          { key: 'caixa', label: 'Caixa', icon: '💰' },
-          { key: 'times', label: 'Times', icon: '⚡' },
-          { key: 'jogos', label: 'Jogos (7m)', icon: '⚽' },
-          { key: 'ranking', label: 'Ranking', icon: '🏆' },
           { key: 'presenca', label: 'Presença', icon: '📋' },
+          { key: 'partidas', label: 'Jogos da Rodada', icon: '⚽' },
+          { key: 'ranking', label: 'Ranking', icon: '🏆' },
+          ...(ehAdmin ? [{ key: 'jogadores', label: 'Jogadores', icon: '👥' }] : []),
+          { key: 'caixa', label: 'Caixa', icon: '💰' },
         ].map((tab) => {
           const ativo = abaAtiva === tab.key;
           return (
@@ -251,73 +341,104 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   topHeader: {
-    backgroundColor: '#064e3b',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 36 : 14,
-    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#064e3b',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#059669',
   },
   appBadge: {
-    color: '#86efac',
+    color: '#34d399',
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   appTitulo: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    color: '#f8fafc',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  headerHorario: {
+    color: '#a7f3d0',
+    fontSize: 10,
+    marginTop: 1,
   },
   headerRightInfo: {
     alignItems: 'flex-end',
   },
-  headerQuadra: {
-    color: '#e2e8f0',
-    fontSize: 12,
+  userPerfilLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  userTagBadge: {
+    alignItems: 'flex-end',
+  },
+  userTagNome: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
+    maxWidth: 120,
+  },
+  userTagPapel: {
+    color: '#34d399',
+    fontSize: 10,
     fontWeight: '700',
   },
-  headerHorario: {
-    color: '#94a3b8',
-    fontSize: 10,
-    marginTop: 1,
+  userTagPapelAdmin: {
+    color: '#fbbf24',
+  },
+  btnSairHeader: {
+    backgroundColor: '#041f11',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0f4829',
+  },
+  btnSairHeaderTxt: {
+    color: '#f87171',
+    fontSize: 11,
+    fontWeight: '800',
   },
   conteudoContainer: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#031a0e',
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#0f172a',
-    paddingVertical: 10,
-    paddingHorizontal: 6,
+    backgroundColor: '#041f11',
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: '#0f4829',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    justifyContent: 'space-around',
   },
   navItem: {
-    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    minWidth: 64,
   },
   navItemAtivo: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: '#064e3b',
   },
   navIcon: {
     fontSize: 18,
     marginBottom: 2,
   },
   navLabel: {
+    color: '#94a3b8',
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748b',
+    fontWeight: '600',
   },
   navLabelAtivo: {
-    color: '#10b981',
-    fontWeight: '900',
+    color: '#34d399',
+    fontWeight: '800',
   },
 });

@@ -10,7 +10,10 @@ import {
   CATEGORIAS_SAIDA,
 } from '../data/initialData';
 
+const DATA_VERSION = 'v2_planilha_oficial_2026';
+
 const KEYS = {
+  DATA_VERSION: '@pelada_data_version',
   CONFIG: '@pelada_config',
   PLAYERS: '@pelada_players',
   PAGAMENTOS: '@pelada_pagamentos',
@@ -25,6 +28,33 @@ const KEYS = {
 export const StorageService = {
   async carregarDadosCompletos() {
     try {
+      const currentVersion = await AsyncStorage.getItem(KEYS.DATA_VERSION);
+      if (currentVersion !== DATA_VERSION) {
+        // Nova versão da planilha oficial: sincroniza dados padrão
+        await AsyncStorage.setItem(KEYS.DATA_VERSION, DATA_VERSION);
+        await Promise.all([
+          AsyncStorage.setItem(KEYS.CONFIG, JSON.stringify(CONFIG_PADRAO)),
+          AsyncStorage.setItem(KEYS.PLAYERS, JSON.stringify(JOGADORES_INICIAIS)),
+          AsyncStorage.setItem(KEYS.PAGAMENTOS, JSON.stringify(PAGAMENTOS_INICIAIS)),
+          AsyncStorage.setItem(KEYS.ENTRADAS, JSON.stringify(ENTRADAS_INICIAIS)),
+          AsyncStorage.setItem(KEYS.SAIDAS, JSON.stringify(SAIDAS_INICIAIS)),
+          AsyncStorage.setItem(KEYS.CATEGORIAS_ENTRADA, JSON.stringify(CATEGORIAS_ENTRADA)),
+          AsyncStorage.setItem(KEYS.CATEGORIAS_SAIDA, JSON.stringify(CATEGORIAS_SAIDA)),
+          AsyncStorage.setItem(KEYS.HISTORICO, JSON.stringify(HISTORICO_PONTUACAO_INICIAL)),
+        ]);
+        return {
+          config: CONFIG_PADRAO,
+          players: JOGADORES_INICIAIS,
+          pagamentos: PAGAMENTOS_INICIAIS,
+          entradas: ENTRADAS_INICIAIS,
+          saidas: SAIDAS_INICIAIS,
+          categoriasEntrada: CATEGORIAS_ENTRADA,
+          categoriasSaida: CATEGORIAS_SAIDA,
+          historicoRanking: HISTORICO_PONTUACAO_INICIAL,
+          partidasHistorico: [],
+        };
+      }
+
       const [
         savedConfig,
         savedPlayers,
