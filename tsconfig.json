@@ -27,7 +27,7 @@
   },
   "include": [
     "src/**/*",
-    "App.js",
+      "App.tsx",
     "index.js",
     "*.config.js",
     "*.config.ts"
